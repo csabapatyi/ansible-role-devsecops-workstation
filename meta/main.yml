@@ -1,0 +1,25 @@
+galaxy_info:
+  author: Csaba Patyi
+  description: A comprehensive DevSecOps workstation setup role for Pop!_OS, Fedora, and openSUSE.
+  company: None
+  license: MIT
+  min_ansible_version: "2.10"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - jammy
+        - focal
+    - name: Fedora
+      versions:
+        - all
+    - name: opensuse
+      versions:
+        - all
+  galaxy_tags:
+    - workstation
+    - devsecops
+    - desktop
+    - setup
+    - productivity
+
+dependencies: []

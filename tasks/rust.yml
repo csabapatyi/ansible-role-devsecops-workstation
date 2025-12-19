@@ -1,0 +1,51 @@
+---
+# 1. Check if Rust/Cargo is already installed
+- name: Check if cargo is installed
+  command: which cargo
+  register: cargo_check
+  ignore_errors: true
+  changed_when: false
+  become: true
+  become_user: "{{ workstation_user }}"
+
+# 2. Install Rustup (if not present)
+- name: Download rustup installer
+  get_url:
+    url: https://sh.rustup.rs
+    dest: /tmp/rustup.sh
+    mode: '0755'
+  when: cargo_check.rc != 0
+
+- name: Install Rust via rustup
+  shell: /tmp/rustup.sh -y
+  become: true
+  become_user: "{{ workstation_user }}"
+  when: cargo_check.rc != 0
+
+# 3. Install Cargo Packages
+# We use a loop to install tools like 'exa', 'bat', 'ripgrep' etc.
+- name: Install Rust packages via Cargo
+  shell: |
+    source $HOME/.cargo/env && \
+    cargo install {{ item }}
+  args:
+    executable: /bin/bash
+  loop: "{{ rust_cargo_packages }}"
+  when: rust_cargo_packages | length > 0
+  become: true
+  become_user: "{{ workstation_user }}"
+  register: cargo_install_result
+  changed_when: "'Installing' in cargo_install_result.stderr"
+  # Cargo builds can take a very long time
+  vars:
+    ansible_command_timeout: 1200
+
+# 4. Add Cargo bin to PATH for the session
+- name: Ensure Cargo bin is in .profile
+  lineinfile:
+    path: "/home/{{ workstation_user }}/.profile"
+    line: 'source "$HOME/.cargo/env"'
+    create: yes
+    state: present
+  become: true
+  become_user: "{{ workstation_user }}"

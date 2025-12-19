@@ -1,0 +1,30 @@
+---
+- name: Load OS-specific variables
+  include_vars: "{{ ansible_os_family }}.yml"
+
+- name: Configure Repositories
+  include_tasks: repositories.yml
+
+- name: Install System and URL Packages
+  include_tasks: packages.yml
+
+- name: Install Flatpaks and Snaps
+  include_tasks: flatpak_snap.yml
+
+- name: Configure VS Code
+  include_tasks: vscode.yml
+
+- name: Setup Containers
+  include_tasks: containers.yml
+
+- name: Setup Virtualization and Infra Tools
+  include_tasks: virtualization.yml
+
+- name: Setup Shell and Starship
+  include_tasks: shell.yml
+
+- name: Install Rust Tools
+  include_tasks: rust.yml
+
+- name: Install Nvidia Drivers
+  include_tasks: nvidia.yml

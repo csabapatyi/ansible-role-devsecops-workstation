@@ -1,0 +1,50 @@
+---
+# 1. Fedora Specific Logic (Requires RPM Fusion logic)
+- name: Enable Nvidia repository (Fedora)
+  command: dnf config-manager --set-enabled rpmfusion-nonfree-nvidia-driver
+  when:
+    - ansible_os_family == "RedHat"
+    - install_nvidia_drivers
+  become: true
+
+# 2. openSUSE Specific Logic
+- name: Add Nvidia repository (openSUSE)
+  zypper_repository:
+    name: nvidia
+    repo: https://download.nvidia.com/opensuse/tumbleweed
+    state: present
+  when:
+    - ansible_os_family == "Suse"
+    - install_nvidia_drivers
+  become: true
+
+# 3. Installation Logic (Generic package list from OS vars)
+- name: Install Nvidia Proprietary Drivers
+  package:
+    name: "{{ nvidia_proprietary_packages }}"
+    state: present
+  when:
+    - install_nvidia_drivers
+    - nvidia_driver_type == "proprietary"
+  become: true
+  notify: "Reboot recommended"
+
+- name: Install Nvidia Open Source Drivers (Kernel Modules)
+  package:
+    name:
+      - "nvidia-open" # Naming varies, but commonly used for the kernel modules
+    state: present
+  when:
+    - install_nvidia_drivers
+    - nvidia_driver_type == "open"
+  become: true
+  notify: "Reboot recommended"
+
+# 4. Special logic for Pop!_OS / Ubuntu
+- name: Run nvidia-detector (Debian-based)
+  command: nvidia-detector
+  register: nvidia_detect
+  changed_when: false
+  when:
+    - ansible_os_family == "Debian"
+    - install_nvidia_drivers

@@ -1,0 +1,69 @@
+---
+# User Configuration
+workstation_user: "{{ ansible_user_id }}"
+workstation_user_shell: "/bin/bash"
+
+# Nvidia Configuration
+install_nvidia_drivers: false
+nvidia_driver_type: "proprietary" # options: proprietary, open
+
+# Container Engine
+container_engine: "docker" # options: docker, podman
+
+# Virtualization Configuration
+# virtualization_provider: "virtualbox" or "libvirt"
+virtualization_provider: "libvirt"
+install_vagrant: false
+
+# VirtualBox Specific
+install_vbox_extpack: false
+
+# Cloud/Infrastructure (from dedicated repos)
+install_terraform: false
+
+# VS Code Configuration
+vscode_install_method: "repo" # options: repo, flatpak
+vscode_extensions: []
+
+# Shell / Starship
+install_starship: true
+load_custom_starship_config: false
+starship_config_dir: "~/.config"
+
+# Lists for Software
+custom_repositories: []
+# Example structure:
+# - name: "google-chrome"
+#   apt_repo: "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main"
+#   yum_repo: "https://dl.google.com/linux/chrome/rpm/stable/x86_64"
+#   gpg_key: "https://dl.google.com/linux/linux_signing_key.pub"
+
+system_packages: []
+flatpak_packages: []
+snap_packages: []
+appimage_packages: [] # Logic will handle downloads
+rust_cargo_packages: []
+url_packages: []
+# Example structure:
+# - name: "some-tool"
+#   url: "https://example.com/tool.tar.gz"
+#   dest: "/usr/local/bin/tool"
+
+# Cloud CLIs
+install_aws_cli: false
+install_azure_cli: false
+install_gcp_cli: false
+install_gitlab_cli: false
+install_github_cli: false
+
+# Ricing & Dotfiles
+# Provide a list of Download URLs for Nerd Font ZIP files
+nerd_font_urls:
+  - "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/JetBrainsMono.zip"
+  - "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/Hack.zip"
+dotfiles_repo: "" # e.g., "https://github.com/username/dotfiles.git"
+dotfiles_dest: "~/.dotfiles"
+custom_shell_aliases: []
+# Example:
+#  - { alias: "k", command: "kubectl" }
+#  - { alias: "g", command: "git" }

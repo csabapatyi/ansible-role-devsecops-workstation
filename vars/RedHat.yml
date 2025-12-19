@@ -1,0 +1,20 @@
+---
+docker_package_name: "docker-ce"
+docker_repo_url: "https://download.docker.com/linux/fedora/docker-ce.repo"
+docker_gpg_key: "https://download.docker.com/linux/fedora/gpg"
+
+podman_package_name: "podman"
+
+hashicorp_repo_url: "https://rpm.releases.hashicorp.com/fedora/hashicorp.repo"
+# Fedora often includes VirtualBox in RPM Fusion, but we can add Oracle's repo:
+vbox_repo_url: "https://download.virtualbox.org/virtualbox/rpm/fedora/virtualbox.repo"
+
+nvidia_proprietary_packages:
+  - "akmod-nvidia"
+  - "xorg-x11-drv-nvidia-cuda"
+
+vscode_repo_url: "https://packages.microsoft.com/yumrepos/vscode"
+vscode_repo_key: "https://packages.microsoft.com/keys/microsoft.asc"
+vscode_package_name: "code"
+
+shell_install_cmd: "dnf install -y"

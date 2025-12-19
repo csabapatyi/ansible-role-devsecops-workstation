@@ -1,0 +1,100 @@
+---
+# 1. Handle GPG Keys for Custom Repositories
+- name: Add custom GPG keys (Debian/Ubuntu)
+  get_url:
+    url: "{{ item.gpg_key }}"
+    dest: "/usr/share/keyrings/{{ item.name }}-archive-keyring.gpg"
+    mode: '0644'
+  loop: "{{ custom_repositories }}"
+  when:
+    - ansible_os_family == "Debian"
+    - item.gpg_key is defined
+
+# 2. Add Custom Repositories (Debian/Ubuntu)
+- name: Add custom APT repositories
+  apt_repository:
+    repo: "{{ item.apt_repo }}"
+    state: present
+    filename: "{{ item.name }}"
+  loop: "{{ custom_repositories }}"
+  when:
+    - ansible_os_family == "Debian"
+    - item.apt_repo is defined
+
+# 3. Add Custom Repositories (Fedora/RedHat)
+- name: Add custom DNF repositories
+  yum_repository:
+    name: "{{ item.name }}"
+    description: "{{ item.name }} repository"
+    baseurl: "{{ item.yum_repo }}"
+    gpgkey: "{{ item.gpg_key | default(omit) }}"
+    gpgcheck: yes
+  loop: "{{ custom_repositories }}"
+  when:
+    - ansible_os_family == "RedHat"
+    - item.yum_repo is defined
+
+# 4. Add Custom Repositories (openSUSE)
+- name: Add custom Zypper repositories
+  zypper_repository:
+    name: "{{ item.name }}"
+    repo: "{{ item.zypper_repo | default(item.yum_repo) }}"
+    state: present
+    auto_import_keys: yes
+  loop: "{{ custom_repositories }}"
+  when:
+    - ansible_os_family == "Suse"
+    - item.yum_repo is defined or item.zypper_repo is defined
+
+# 5. Special Case: Docker Official Repository (if chosen)
+- name: Add Docker GPG key (Debian)
+  apt_key:
+    url: "{{ docker_gpg_key }}"
+    state: present
+  when:
+    - ansible_os_family == "Debian"
+    - container_engine == "docker"
+
+- name: Add Docker Repository (Debian)
+  apt_repository:
+    repo: "deb [arch=amd64] {{ docker_repo_url }} {{ ansible_distribution_release }} stable"
+    state: present
+  when:
+    - ansible_os_family == "Debian"
+    - container_engine == "docker"
+
+- name: Add Docker Repository (Fedora/Suse)
+  get_url:
+    url: "{{ docker_repo_url }}"
+    dest: "/etc/yum.repos.d/docker-ce.repo"
+  when:
+    - ansible_os_family in ["RedHat", "Suse"]
+    - container_engine == "docker"
+
+# 6. Special Case: VS Code Repository (if method is 'repo')
+- name: Add VS Code GPG key (Debian)
+  apt_key:
+    url: "{{ vscode_repo_key }}"
+    state: present
+  when:
+    - ansible_os_family == "Debian"
+    - vscode_install_method == "repo"
+
+- name: Add VS Code Repository (Debian)
+  apt_repository:
+    repo: "{{ vscode_repo_url }}"
+    state: present
+  when:
+    - ansible_os_family == "Debian"
+    - vscode_install_method == "repo"
+
+- name: Add VS Code Repository (Fedora/Suse)
+  yum_repository:
+    name: vscode
+    description: Visual Studio Code
+    baseurl: "{{ vscode_repo_url }}"
+    gpgkey: "{{ vscode_repo_key }}"
+    gpgcheck: yes
+  when:
+    - ansible_os_family in ["RedHat", "Suse"]
+    - vscode_install_method == "repo"

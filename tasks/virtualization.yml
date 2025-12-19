@@ -1,0 +1,91 @@
+---
+# 1. Dedicated Repositories for HashiCorp (Vagrant/Terraform)
+- name: Add HashiCorp GPG key (Debian)
+  apt_key:
+    url: "{{ hashicorp_gpg_key }}"
+    state: present
+  when: (install_vagrant or install_terraform) and ansible_os_family == "Debian"
+  become: true
+
+- name: Add HashiCorp Repository (Debian)
+  apt_repository:
+    repo: "{{ hashicorp_repo_url }}"
+    state: present
+  when: (install_vagrant or install_terraform) and ansible_os_family == "Debian"
+  become: true
+
+- name: Add HashiCorp Repository (Fedora/Suse)
+  get_url:
+    url: "{{ hashicorp_repo_url }}"
+    dest: /etc/yum.repos.d/hashicorp.repo
+  when: (install_vagrant or install_terraform) and ansible_os_family in ["RedHat", "Suse"]
+  become: true
+
+# 2. Install Vagrant and Terraform
+- name: Install HashiCorp Tools
+  package:
+    name:
+      - "{{ 'vagrant' if install_vagrant else omit }}"
+      - "{{ 'terraform' if install_terraform else omit }}"
+    state: present
+  become: true
+
+# 3. Virtualization Choice: Libvirt / QEMU / KVM
+- name: Install Virt-Manager and Libvirt stack
+  block:
+    - name: Install Libvirt packages
+      package:
+        name:
+          - virt-manager
+          - qemu-kvm
+          - libvirt-daemon-system
+          - libvirt-clients
+          - bridge-utils
+        state: present
+    - name: Add user to libvirt/kvm groups
+      user:
+        name: "{{ workstation_user }}"
+        groups: "{{ 'libvirt,kvm' if ansible_os_family == 'Debian' else 'libvirt' }}"
+        append: true
+    - name: Enable Libvirt Service
+      systemd:
+        name: libvirtd
+        enabled: true
+        state: started
+  when: virtualization_provider == "libvirt"
+  become: true
+
+# 4. Virtualization Choice: VirtualBox (Oracle Repo)
+- name: Install VirtualBox Stack
+  block:
+    - name: Add VirtualBox GPG key (Debian)
+      apt_key:
+        url: "{{ vbox_gpg_key }}"
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Add VirtualBox Repository (Debian)
+      apt_repository:
+        repo: "{{ vbox_repo_url }}"
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Add VirtualBox Repository (Fedora)
+      get_url:
+        url: "{{ vbox_repo_url }}"
+        dest: /etc/yum.repos.d/virtualbox.repo
+      when: ansible_os_family == "RedHat"
+
+    - name: Install VirtualBox
+      package:
+        name: VirtualBox-7.0
+        state: present
+
+    - name: Download and Install VBox Extension Pack
+      shell: |
+        export VBOX_VER=$(vboxmanage -v | cut -dr -f1)
+        wget https://download.virtualbox.org/virtualbox/$VBOX_VER/Oracle_VM_VirtualBox_Extension_Pack-$VBOX_VER.vbox-extpack
+        yes | vboxmanage extpack install Oracle_VM_VirtualBox_Extension_Pack-$VBOX_VER.vbox-extpack
+      when: install_vbox_extpack
+  when: virtualization_provider == "virtualbox"
+  become: true

@@ -1,0 +1,23 @@
+---
+# OS Specific package names
+docker_package_name: "docker-ce"
+docker_repo_url: "https://download.docker.com/linux/ubuntu"
+docker_gpg_key: "https://download.docker.com/linux/ubuntu/gpg"
+
+podman_package_name: "podman"
+
+hashicorp_repo_url: "deb [arch=amd64] https://apt.releases.hashicorp.com {{ ansible_distribution_release }} main"
+hashicorp_gpg_key: "https://apt.releases.hashicorp.com/gpg"
+
+vbox_repo_url: "deb [arch=amd64] https://download.virtualbox.org/virtualbox/debian {{ ansible_distribution_release }} contrib"
+vbox_gpg_key: "https://www.virtualbox.org/download/oracle_vbox_2016.asc"
+
+nvidia_proprietary_packages:
+  - "system76-driver-nvidia" # Specific to Pop!_OS
+  - "nvidia-settings"
+
+vscode_repo_url: "deb [arch=amd64] https://packages.microsoft.com/repos/code stable main"
+vscode_repo_key: "https://packages.microsoft.com/keys/microsoft.asc"
+vscode_package_name: "code"
+
+shell_install_cmd: "apt-get install -y"

@@ -1,0 +1,69 @@
+---
+# 1. Flatpak Setup and Installation
+- name: Ensure flatpak is installed
+  package:
+    name: flatpak
+    state: present
+  become: true
+
+- name: Add Flathub repository
+  flatpak_remote:
+    name: flathub
+    state: present
+    flatpakrepo_url: https://dl.flathub.org/repo/flathub.flatpakrepo
+  become: true
+
+- name: Install Flatpak packages
+  flatpak:
+    name: "{{ item }}"
+    state: present
+    remote: flathub
+  loop: "{{ flatpak_packages }}"
+  when: flatpak_packages | length > 0
+  become: true
+
+- name: Install VS Code via Flatpak
+  flatpak:
+    name: com.visualstudio.code
+    state: present
+    remote: flathub
+  when: vscode_install_method == "flatpak"
+  become: true
+
+# 2. Snap Setup and Installation
+- name: Ensure snapd is installed
+  package:
+    name: snapd
+    state: present
+  become: true
+
+- name: Enable and start snapd socket
+  systemd:
+    name: snapd.socket
+    enabled: yes
+    state: started
+  become: true
+
+- name: Create snap symbolic link (Required for classic snaps on some distros)
+  file:
+    src: /var/lib/snapd/snap
+    dest: /snap
+    state: link
+  become: true
+  when: ansible_os_family in ["RedHat", "Suse"]
+
+- name: Install Snap packages
+  snap:
+    name: "{{ item }}"
+    state: present
+  loop: "{{ snap_packages }}"
+  when: snap_packages | length > 0
+  become: true
+
+# 3. VS Code via Snap (Optional alternative)
+- name: Install VS Code via Snap
+  snap:
+    name: code
+    classic: yes
+  when: vscode_install_method == "snap"
+  become: true

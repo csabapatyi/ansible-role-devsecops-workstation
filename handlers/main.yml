@@ -1,0 +1,4 @@
+---
+- name: Reboot recommended
+  debug:
+    msg: "Nvidia drivers have been installed. A reboot is recommended to apply changes."

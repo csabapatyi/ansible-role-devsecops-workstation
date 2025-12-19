@@ -1,0 +1,48 @@
+---
+# 1. Install Nerd Fonts from list of URLs
+- name: Install Nerd Fonts
+  block:
+    - name: Ensure local fonts directory exists
+      file:
+        path: "/home/{{ workstation_user }}/.local/share/fonts"
+        state: directory
+        owner: "{{ workstation_user }}"
+        group: "{{ workstation_user }}"
+        mode: '0755'
+
+    - name: Download and unarchive Nerd Fonts
+      unarchive:
+        src: "{{ item }}"
+        dest: "/home/{{ workstation_user }}/.local/share/fonts"
+        remote_src: true
+      loop: "{{ nerd_font_urls }}"
+      when: nerd_font_urls | length > 0
+
+    - name: Update font cache
+      command: fc-cache -f
+      changed_when: true
+  when: nerd_font_urls | length > 0
+  become: true
+  become_user: "{{ workstation_user }}"
+
+# 2. Dotfiles
+- name: Clone dotfiles repository
+  git:
+    repo: "{{ dotfiles_repo }}"
+    dest: "{{ dotfiles_dest | expanduser }}"
+    accept_hostkey: true
+  when: dotfiles_repo != ""
+  become: true
+  become_user: "{{ workstation_user }}"
+
+# 3. Custom Shell Aliases
+- name: Add aliases to shell RC
+  lineinfile:
+    path: "/home/{{ workstation_user }}/.{{ workstation_user_shell | basename }}rc"
+    line: "alias {{ item.alias }}='{{ item.command }}'"
+    state: present
+    create: true
+  loop: "{{ custom_shell_aliases }}"
+  when: custom_shell_aliases | length > 0
+  become: true
+  become_user: "{{ workstation_user }}"

@@ -1,0 +1,66 @@
+---
+# 1. Logic for Docker installation
+- name: Install Docker Engine
+  package:
+    name:
+      - "{{ docker_package_name }}"
+      - "docker-ce-cli"
+      - "containerd.io"
+      - "docker-buildx-plugin"
+      - "docker-compose-plugin"
+    state: present
+  when: container_engine == "docker"
+  become: true
+
+- name: Ensure docker group exists
+  group:
+    name: docker
+    state: present
+  when: container_engine == "docker"
+  become: true
+
+- name: Add user to docker group
+  user:
+    name: "{{ workstation_user }}"
+    groups: docker
+    append: yes
+  when: container_engine == "docker"
+  become: true
+
+- name: Enable and start Docker service
+  systemd:
+    name: docker
+    enabled: yes
+    state: started
+  when: container_engine == "docker"
+  become: true
+
+# 2. Logic for Podman installation
+- name: Install Podman
+  package:
+    name: "{{ podman_package_name }}"
+    state: present
+  when: container_engine == "podman"
+  become: true
+
+- name: Install Podman Compose (if Fedora/Suse)
+  package:
+    name: podman-compose
+    state: present
+  when: 
+    - container_engine == "podman"
+    - ansible_os_family in ["RedHat", "Suse"]
+  become: true
+
+# 3. Rootless Podman Configuration
+- name: Ensure subuid/subgid configured for rootless containers
+  lineinfile:
+    path: "{{ item }}"
+    line: "{{ workstation_user }}:100000:65536"
+    regexp: "^{{ workstation_user }}:"
+    state: present
+  loop:
+    - /etc/subuid
+    - /etc/subgid
+  when: container_engine == "podman"
+  become: true

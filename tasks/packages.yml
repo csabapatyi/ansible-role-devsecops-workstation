@@ -1,0 +1,139 @@
+---
+# 1. Install System Packages based on OS Family
+- name: Install system packages (Debian/Ubuntu)
+  apt:
+    name: "{{ system_packages }}"
+    state: present
+    update_cache: yes
+  when: ansible_os_family == "Debian"
+  become: true
+
+- name: Install system packages (Fedora)
+  dnf:
+    name: "{{ system_packages }}"
+    state: present
+    update_cache: yes
+  when: ansible_os_family == "RedHat"
+  become: true
+
+- name: Install system packages (openSUSE)
+  zypper:
+    name: "{{ system_packages }}"
+    state: present
+    update_cache: yes
+  when: ansible_os_family == "Suse"
+  become: true
+
+# 2. Install Packages directly from URLs
+# This is useful for tools that don't provide repos (e.g. specific binary releases)
+- name: Ensure destination directory for URL downloads exists
+  file:
+    path: "{{ item.dest | dirname }}"
+    state: directory
+    mode: '0755'
+  loop: "{{ url_packages }}"
+  when: url_packages | length > 0
+  become: true
+
+- name: Download and install packages from URL
+  get_url:
+    url: "{{ item.url }}"
+    dest: "{{ item.dest }}"
+    mode: '0755'
+  loop: "{{ url_packages }}"
+  when: url_packages | length > 0
+  become: true
+
+# 3. Install AppImages
+# We usually store these in a dedicated bin folder in the user's home
+- name: Create AppImage directory
+  file:
+    path: "/home/{{ workstation_user }}/Applications"
+    state: directory
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: '0755'
+
+- name: Download AppImages
+  get_url:
+    url: "{{ item.url }}"
+    dest: "/home/{{ workstation_user }}/Applications/{{ item.name }}.AppImage"
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: '0755'
+  loop: "{{ appimage_packages }}"
+  when: appimage_packages | length > 0
+
+# 4. Install VS Code via system repo (if chosen)
+- name: Install VS Code via Package Manager
+  package:
+    name: "{{ vscode_package_name }}"
+    state: present
+  when: vscode_install_method == "repo"
+  become: true
+
+# GitHub CLI
+- name: Install GitHub CLI
+  package:
+    name: gh
+    state: present
+  when: install_github_cli
+  become: true
+
+# GitLab CLI
+- name: Install GitLab CLI
+  package:
+    name: glab
+    state: present
+  when: install_gitlab_cli
+  become: true
+
+# AWS CLI & SSM Plugin
+- name: Install AWS CLI v2
+  block:
+    - name: Download AWS CLI
+      unarchive:
+        src: https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip
+        dest: /tmp
+        remote_src: true
+    - name: Run AWS Installer
+      command: /tmp/aws/install --update
+  when: install_aws_cli
+  become: true
+
+- name: Install AWS SSM Session Manager Plugin
+  package:
+    name: "https://s3.amazonaws.com/session-manager-downloads/library/linux_64bit/{{ 'amazon-ssm-agent.rpm' if ansible_os_family in ['RedHat', 'Suse'] else 'session-manager-plugin.deb' }}"
+    state: present
+  when: install_aws_cli
+  become: true
+
+# Azure CLI
+- name: Install Azure CLI (Debian/Ubuntu)
+  shell: curl -sL https://aka.ms/InstallAzureCLIDeb | bash
+  when:
+    - install_azure_cli
+    - ansible_os_family == "Debian"
+  become: true
+
+# GCP CLI (Fedora/Suse/Debian)
+- name: Install Google Cloud CLI
+  shell: curl https://sdk.cloud.google.com | bash -s -- --disable-prompts --install-dir=/opt
+  when: install_gcp_cli
+  become: true
+
+# Neovim (Latest Stable Binary)
+- name: Install Neovim Stable
+  block:
+    - name: Download Nvim Binary
+      unarchive:
+        src: https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz
+        dest: /opt
+        remote_src: true
+    - name: Link Nvim to Path
+      file:
+        src: /opt/nvim-linux64/bin/nvim
+        dest: /usr/local/bin/nvim
+        state: link
+  when: "'nvim' in system_packages or true" # Example toggle logic
+  become: true

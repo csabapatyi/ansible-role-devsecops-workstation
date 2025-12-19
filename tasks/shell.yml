@@ -1,0 +1,85 @@
+---
+# 1. Ensure the target shell is installed
+- name: Ensure target shell is installed
+  package:
+    name: "{{ workstation_user_shell | basename }}"
+    state: present
+  become: true
+
+# 2. Set the default shell for the user
+- name: Set the user shell
+  user:
+    name: "{{ workstation_user }}"
+    shell: "{{ workstation_user_shell }}"
+  become: true
+
+# 3. Install Starship
+- name: Check if Starship is installed
+  command: which starship
+  register: starship_check
+  ignore_errors: true
+  changed_when: false
+
+- name: Download and Install Starship
+  shell: "curl -sS https://starship.rs/install.sh | sh -s -- -y"
+  become: true
+  when:
+    - install_starship
+    - starship_check.rc != 0
+
+# 4. Configure Starship
+- name: Create Starship config directory
+  file:
+    path: "{{ starship_config_dir | expanduser }}"
+    state: directory
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: '0755'
+
+- name: Deploy Starship configuration
+  template:
+    src: starship.toml.j2
+    dest: "{{ starship_config_dir | expanduser }}/starship.toml"
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: '0644'
+  when:
+    - install_starship
+    - load_custom_starship_config
+
+# 5. Initialize Starship in Shell RC files
+- name: Initialize Starship in .bashrc
+  lineinfile:
+    path: "/home/{{ workstation_user }}/.bashrc"
+    line: 'eval "$(starship init bash)"'
+    state: present
+  when:
+    - workstation_user_shell == "/bin/bash"
+    - install_starship
+
+- name: Initialize Starship in .zshrc
+  lineinfile:
+    path: "/home/{{ workstation_user }}/.zshrc"
+    line: 'eval "$(starship init zsh)"'
+    create: yes
+    state: present
+  when:
+    - workstation_user_shell == "/bin/zsh"
+    - install_starship
+
+- name: Initialize Starship in fish config
+  block:
+    - name: Ensure fish config directory exists
+      file:
+        path: "/home/{{ workstation_user }}/.config/fish"
+        state: directory
+
+    - name: Add Starship to config.fish
+      lineinfile:
+        path: "/home/{{ workstation_user }}/.config/fish/config.fish"
+        line: 'starship init fish | source'
+        create: yes
+        state: present
+  when:
+    - workstation_user_shell == "/usr/bin/fish" or workstation_user_shell == "/bin/fish"
+    - install_starship

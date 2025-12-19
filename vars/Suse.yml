@@ -1,0 +1,16 @@
+---
+docker_package_name: "docker"
+docker_repo_url: "https://download.opensuse.org/repositories/Virtualization:containers/openSUSE_Tumbleweed/Virtualization:containers.repo"
+docker_gpg_key: "" # Usually bundled in repo file for Suse
+
+podman_package_name: "podman"
+
+nvidia_proprietary_packages:
+  - "x11-video-nvidiaG06"
+  - "nvidia-glG06"
+
+vscode_repo_url: "https://packages.microsoft.com/yumrepos/vscode"
+vscode_repo_key: "https://packages.microsoft.com/keys/microsoft.asc"
+vscode_package_name: "code"
+
+shell_install_cmd: "zypper install -y"
