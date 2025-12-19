@@ -88,7 +88,26 @@
   when: install_gitlab_cli
   become: true
 
-# AWS CLI & SSM Plugin
+# 1. Google Cloud CLI (Script-based with check)
+- name: Check if Google Cloud SDK is already installed
+  stat:
+    path: /opt/google-cloud-sdk
+  register: gcp_sdk_dir
+
+- name: Install Google Cloud CLI via Script
+  shell: curl https://sdk.cloud.google.com | bash -s -- --disable-prompts --install-dir=/opt
+  when:
+    - install_gcp_cli
+    - not gcp_sdk_dir.stat.exists
+  become: true
+
+# 2. AWS CLI v2 (Check then Install)
+- name: Check if AWS CLI is installed
+  command: which aws
+  register: aws_check
+  ignore_errors: true
+  changed_when: false
+
 - name: Install AWS CLI v2
   block:
     - name: Download AWS CLI
@@ -98,16 +117,26 @@
         remote_src: true
     - name: Run AWS Installer
       command: /tmp/aws/install --update
-  when: install_aws_cli
+  when:
+    - install_aws_cli
+    - aws_check.rc != 0
   become: true
+
+# 3. AWS SSM Session Manager Plugin (Validation-based)
+- name: Check if SSM Session Manager Plugin is installed
+  shell: session-manager-plugin --version
+  register: ssm_plugin_check
+  ignore_errors: true
+  changed_when: false
 
 - name: Install AWS SSM Session Manager Plugin (Debian/Ubuntu)
   apt:
     deb: "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb"
     state: present
-  when: 
+  when:
     - install_aws_cli
     - ansible_os_family == "Debian"
+    - ssm_plugin_check.rc != 0
   become: true
 
 - name: Install AWS SSM Session Manager Plugin (Fedora/RedHat)
@@ -115,9 +144,10 @@
     name: "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/linux_64bit/session-manager-plugin.rpm"
     state: present
     disable_gpg_check: true
-  when: 
+  when:
     - install_aws_cli
     - ansible_os_family == "RedHat"
+    - ssm_plugin_check.rc != 0
   become: true
 
 - name: Install AWS SSM Session Manager Plugin (openSUSE)
@@ -125,37 +155,59 @@
     name: "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/linux_64bit/session-manager-plugin.rpm"
     state: present
     disable_gpg_check: true
-  when: 
+  when:
     - install_aws_cli
     - ansible_os_family == "Suse"
+    - ssm_plugin_check.rc != 0
   become: true
 
-# Azure CLI
+# Azure CLI (Check then Install)
+- name: Check if Azure CLI is installed
+  command: which az
+  register: az_check
+  ignore_errors: true
+  changed_when: false
+
 - name: Install Azure CLI (Debian/Ubuntu)
   shell: curl -sL https://aka.ms/InstallAzureCLIDeb | bash
   when:
     - install_azure_cli
     - ansible_os_family == "Debian"
+    - az_check.rc != 0
   become: true
 
-# GCP CLI (Fedora/Suse/Debian)
-- name: Install Google Cloud CLI
-  shell: curl https://sdk.cloud.google.com | bash -s -- --disable-prompts --install-dir=/opt
-  when: install_gcp_cli
+- name: Install Azure CLI (Fedora/RedHat)
+  shell: rpm --import https://packages.microsoft.com/keys/microsoft.asc && dnf install -y https://packages.microsoft.com/config/fedora/$(rpm -E %fedora)/packages-microsoft-prod.rpm && dnf install -y azure-cli
+  when:
+    - install_azure_cli
+    - ansible_os_family == "RedHat"
+    - az_check.rc != 0
   become: true
 
-# Neovim (Latest Stable Binary)
+# Neovim (Check then Install Binary)
+- name: Check if Neovim is installed
+  command: which nvim
+  register: nvim_check
+  ignore_errors: true
+  changed_when: false
+
 - name: Install Neovim Stable
   block:
-    - name: Download Nvim Binary
+    - name: Download and Extract Nvim Binary
       unarchive:
         src: https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz
         dest: /opt
         remote_src: true
+        owner: root
+        group: root
+
     - name: Link Nvim to Path
       file:
-        src: /opt/nvim-linux64/bin/nvim
+        src: /opt/nvim-linux-x86_64/bin/nvim
         dest: /usr/local/bin/nvim
         state: link
-  when: "'nvim' in system_packages or true" # Example toggle logic
+        force: true
+  when:
+    - nvim_check.rc != 0
+    - ("'nvim' in system_packages") or (install_neovim | default(true))
   become: true
