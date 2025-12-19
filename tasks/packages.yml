@@ -101,11 +101,33 @@
   when: install_aws_cli
   become: true
 
-- name: Install AWS SSM Session Manager Plugin
-  package:
-    name: "https://s3.amazonaws.com/session-manager-downloads/library/linux_64bit/{{ 'amazon-ssm-agent.rpm' if ansible_os_family in ['RedHat', 'Suse'] else 'session-manager-plugin.deb' }}"
+- name: Install AWS SSM Session Manager Plugin (Debian/Ubuntu)
+  apt:
+    deb: "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb"
     state: present
-  when: install_aws_cli
+  when: 
+    - install_aws_cli
+    - ansible_os_family == "Debian"
+  become: true
+
+- name: Install AWS SSM Session Manager Plugin (Fedora/RedHat)
+  dnf:
+    name: "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/linux_64bit/session-manager-plugin.rpm"
+    state: present
+    disable_gpg_check: true
+  when: 
+    - install_aws_cli
+    - ansible_os_family == "RedHat"
+  become: true
+
+- name: Install AWS SSM Session Manager Plugin (openSUSE)
+  zypper:
+    name: "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/linux_64bit/session-manager-plugin.rpm"
+    state: present
+    disable_gpg_check: true
+  when: 
+    - install_aws_cli
+    - ansible_os_family == "Suse"
   become: true
 
 # Azure CLI
