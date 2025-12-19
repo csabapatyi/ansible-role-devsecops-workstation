@@ -24,10 +24,11 @@
 # 2. Install Vagrant and Terraform
 - name: Install HashiCorp Tools
   package:
-    name:
-      - "{{ 'vagrant' if install_vagrant else omit }}"
-      - "{{ 'terraform' if install_terraform else omit }}"
+    name: "{{ items_list }}"
     state: present
+  vars:
+    items_list: "{{ [ (install_vagrant | ternary('vagrant', None)), (install_terraform | ternary('terraform', None)) ] | select('string') | list }}"
+  when: install_vagrant or install_terraform
   become: true
 
 # 3. Virtualization Choice: Libvirt / QEMU / KVM
