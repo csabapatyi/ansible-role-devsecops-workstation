@@ -35,14 +35,34 @@
   become: true
   become_user: "{{ workstation_user }}"
 
-# 3. Custom Shell Aliases
-- name: Add aliases to shell RC
-  lineinfile:
-    path: "/home/{{ workstation_user }}/.{{ workstation_user_shell | basename }}rc"
-    line: "alias {{ item.alias }}='{{ item.command }}'"
-    state: present
+# 3. Inject Custom Shell Configuration Block
+# If you choose /usr/bin/fish, the RC file path is different. Conditional check needed to handle this.
+- name: Determine Shell RC path
+  set_fact:
+    shell_rc_path: >-
+      {% if 'fish' in workstation_user_shell -%}
+      /home/{{ workstation_user }}/.config/fish/config.fish
+      {%- else -%}
+      /home/{{ workstation_user }}/.{{ workstation_user_shell | basename }}rc
+      {%- endif %}
+
+- name: Ensure Fish config directory exists
+  file:
+    path: "/home/{{ workstation_user }}/.config/fish"
+    state: directory
+  when: "'fish' in workstation_user_shell"
+  become: true
+  become_user: "{{ workstation_user }}"
+
+- name: Inject custom content into shell RC
+  blockinfile:
+    path: "{{ shell_rc_path }}"
+    marker: "# {mark} ANSIBLE MANAGED BLOCK: Custom Shell Settings"
+    block: "{{ custom_shell_content }}"
     create: true
-  loop: "{{ custom_shell_aliases }}"
-  when: custom_shell_aliases | length > 0
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: '0644'
+  when: custom_shell_content | length > 0
   become: true
   become_user: "{{ workstation_user }}"
