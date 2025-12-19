@@ -1,6 +1,6 @@
 # Ansible Role: DevSecOps Workstation
 
-A comprehensive, (wished to be) distribution-agnostic Ansible role designed for DevSecOps consultants to bootstrap a Linux workstation. Currently tested on **Pop!_OS (Ubuntu)**. Future plans are **Fedora**, and **openSUSE Tumbleweed**.
+A comprehensive and highly openioneted,  all-in-one, (wished to be) distribution-agnostic Ansible role designed for DevSecOps consultants to bootstrap a Linux workstation. Currently tested only on **Pop!_OS (Ubuntu)**. Future plans are **Fedora**, and **openSUSE Tumbleweed**.
 
 This role automates the installation of system packages, container engines (Docker/Podman), VS Code with extensions, Rust toolchains, Starship prompt, and Nvidia drivers.
 
@@ -19,6 +19,7 @@ This role automates the installation of system packages, container engines (Dock
 The following variables are defined in `defaults/main.yml`. You can override these in your playbook's `extra_vars` or `host_vars`.
 
 ### User & Shell Configuration
+
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `workstation_user` | `{{ ansible_user_id }}` | The system user to configure. |
@@ -28,11 +29,11 @@ The following variables are defined in `defaults/main.yml`. You can override the
 | `starship_config_dir` | `~/.config` | Directory where `starship.toml` will be placed. |
 
 ### Drivers
+
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `install_nvidia_drivers` | `false` | Whether to install Nvidia GPU drivers. |
 | `nvidia_driver_type` | `proprietary` | `proprietary` or `open`. |
-
 
 ### Virtualization & Containers
 
@@ -45,6 +46,7 @@ The following variables are defined in `defaults/main.yml`. You can override the
 | `container_engine` | `docker` | `docker` (official repo) or `podman`. |
 
 ### Software & VS Code
+
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `vscode_install_method` | `repo` | `repo` (native), `flatpak`, or `snap`. |
@@ -55,8 +57,12 @@ The following variables are defined in `defaults/main.yml`. You can override the
 | `appimage_packages` | `[]` | List of AppImages (Name/URL) to download to `~/Applications`. |
 | `rust_cargo_packages` | `[]` | List of crates to install via `cargo install`. |
 | `url_packages` | `[]` | List of binaries to download directly from a URL. |
+| `direct_deb_urls` | `[]` | URLs of .deb packages to install (Debian/Ubuntu/Pop!_OS). |
+| `direct_rpm_urls` | `[]` | URLs of .rpm packages to install (Fedora). |
+| `direct_zypper_urls` | `[]` | URLs of .rpm packages to install (openSUSE). |
 
 ### Cloud & DevSecOps CLIs
+
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `install_aws_cli` | `false` | Installs AWS CLI v2 and SSM Session Manager plugin. |
@@ -66,12 +72,13 @@ The following variables are defined in `defaults/main.yml`. You can override the
 | `install_github_cli` | `false` | Installs `gh`. |
 
 ### Ricing & Personalization
+
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `nerd_font_urls` | `[...]` | List of ZIP URLs for Nerd Fonts to install to `~/.local/share/fonts`. |
 | `dotfiles_repo` | `""` | Git URL of your dotfiles repository. |
 | `dotfiles_dest` | `~/.dotfiles` | Path where dotfiles will be cloned. |
-| `custom_shell_aliases` | `[]` | List of objects `{ alias: "name", command: "cmd" }`. |
+| `custom_shell_content` | `""` | A multi-line string containing aliases, exports, and evals to be appended to your shell RC file. |
 
 ## Example Configuration (`extra-vars.yml`)
 
@@ -79,19 +86,89 @@ Save your configuration in a separate file to keep your workstation setup portab
 
 ```yaml
 workstation_user: "your_username"
-workstation_user_shell: "/usr/bin/zsh"
+workstation_user_shell: "/bin/bash"
 
 container_engine: "docker"
 install_nvidia_drivers: true
+
+virtualization_provider: "libvirt"
+install_vagrant: true
+install_terraform: true
+
+custom_ppas:
+  - "ppa:agornostal/ulauncher"
+
+# This will be used on your Pop!_OS machine
+direct_deb_urls:
+  - "https://www.synaptics.com/sites/default/files/Ubuntu/pool/stable/main/all/synaptics-repository-keyring.deb"
 
 system_packages:
   - git
   - tmux
   - htop
   - glances
+  - make
+  - ca-certificates
+  - golang
   - terraform
+  - dnsutils
+  - nmap
+  - stow
+  - alacritty
   - python3-pip
+  - ulauncher               # This needs the PPAs: "ppa:agornostal/ulauncher"
+  - displaylink-driver      # This needs the direct_deb_url above from Synaptics
+  - vscode
+  - virt-manager
+  - qemu-utils
+  - qemu-system-x86
+  - qemu-system-common
+  - libvirt-daemon
+  - libvirt0
+  - vagrant
 
+flatpak_packages:
+  # Browsers
+  - app.zen_browser.zen                 # Zen Browser
+  - com.brave.Browser                   # Brave Browser
+  - com.microsoft.Edge                  # Microsoft Edge
+
+  # Office and similar tools
+  - com.calibre_ebook.calibre           # eBook reader
+
+  # Communications
+  - com.slack.Slack                     # https://flathub.org/apps/details/com.slack.Slack
+
+  # DevOps, Cloud and System Management
+  - io.github.mfat.sshpilot             # SSH session manager
+  - me.iepure.devtoolbox                # Various Dev Tools for example json to yaml converter
+  - io.github.tobagin.keysmith          # SSH key management GUI
+  - org.kde.krdc                        # RDP & VNC session manager
+  - dev.zed.Zed                         # Zed IDE
+  - app.devsuite.Ptyxis                 # Container focused terminal emulator
+  - com.raggesilver.BlackBox            # GTK4 Terminal
+  - dev.skynomads.Seabird               # Kubernetes Desktop GUI
+
+  # Videos & Music player related
+  - com.spotify.Client                  # Spotify
+  - info.smplayer.SMPlayer              # SMPlayer
+  - org.videolan.VLC                    # VLC
+
+  # Backup & Sync Solutions
+  - me.kozec.syncthingtk                # GUI to configure sync jobs
+  - org.freefilesync.FreeFileSync       # GUI to configure sync jobs
+
+  # Utilities
+  - com.github.tchx84.Flatseal          # Flatpak permission manager
+  - com.bitwarden.desktop               # Bitwarden Desktop App (password manager)
+  - de.z_ray.OptimusUI                  # Nvidia card switcher
+  - io.github.cosmic_utils.Examine      # System Information Checker
+  - best.ellie.StartupConfiguration     # Autostart configuration
+  - org.gnome.baobab                    # Disk usage analyzer
+  - page.codeberg.JakobDev.jdSystemMonitor  # System Monitor
+  - io.github.vikdevelop.SaveDesktop    # Save Desktop settings
+
+vscode_install_method: repo
 
 vscode_extensions:
   - redhat.ansible
@@ -99,9 +176,10 @@ vscode_extensions:
   - rust-lang.rust-analyzer
 
 rust_cargo_packages:
-  - exa
-  - ripgrep
-  - topgrade
+  - bat
+  - zoxide
+  - eza             # better ls
+  - topgrade        # all in one upgrade everything (apt, docker images, vscode extensions, pip packages, cargo packages, neovim plugins etc)
 
 url_packages:
   - name: "kubectl"
@@ -118,21 +196,41 @@ install_github_cli: true
 # Ricing
 install_nerd_fonts: true
 dotfiles_repo: "https://github.com/youruser/dotfiles.git"
-custom_shell_aliases:
-  - { alias: "ll", command: "ls -lah" }
-  - { alias: "tf", command: "terraform" }
+custom_shell_content: |
+    # Custom Settings
+
+    ## Aliases
+    alias vim="nvim"
+    alias vi="nvim"
+    alias ll="eza -hla --group-directories-first"
+    alias lls="eza -hla --group-directories-first --total-size"
+    alias untar="tar zxfv"
+
+    ### git aliases
+    alias gp="git pull"
+    alias gcm="git commit -m"
+    alias gca="git commit --amend"
+    alias gb="git rebase"
+
+    # export PATH and other global variables
+    export PATH="${HOME}/.cargo/bin:/opt/nvim-linux-x86_64/bin:${HOME}/.local/bin:${PATH}"
+    export EDITOR='nvim'
 ```
 
 ## Usage
 
 ### 1. Install the role
+
 If you have uploaded this to Galaxy:
+
 ```bash
 ansible-galaxy install csabapatyi.devsecops-workstation
 ```
 
 ### 2. Create a Playbook
+
 Create a `setup.yml` file:
+
 ```yaml
 ---
 - hosts: localhost
@@ -143,6 +241,7 @@ Create a `setup.yml` file:
 ```
 
 ### 3. Run the Playbook
+
 ```bash
 ansible-playbook setup.yml -e "@extra-vars.yml" --ask-become-pass
 ```
