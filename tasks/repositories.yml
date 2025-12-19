@@ -1,5 +1,40 @@
 ---
-# 1. Handle GPG Keys for Custom Repositories
+# 1. Direct .deb installations (Ubuntu/Pop!_OS)
+- name: Install direct .deb packages from URL
+  apt:
+    deb: "{{ item }}"
+    state: present
+  loop: "{{ direct_deb_urls }}"
+  when: 
+    - ansible_os_family == "Debian"
+    - direct_deb_urls | length > 0
+  become: true
+
+# 2. Direct .rpm installations (Fedora)
+- name: Install direct .rpm packages from URL (Fedora)
+  dnf:
+    name: "{{ item }}"
+    state: present
+    disable_gpg_check: true # Often needed for initial repo-keyring RPMs
+  loop: "{{ direct_rpm_urls }}"
+  when: 
+    - ansible_os_family == "RedHat"
+    - direct_rpm_urls | length > 0
+  become: true
+
+# 3. Direct .rpm installations (openSUSE)
+- name: Install direct .rpm packages from URL (openSUSE)
+  zypper:
+    name: "{{ item }}"
+    state: present
+    disable_gpg_check: true
+  loop: "{{ direct_zypper_urls }}"
+  when: 
+    - ansible_os_family == "Suse"
+    - direct_zypper_urls | length > 0
+  become: true
+
+# 4. Handle GPG Keys for Custom Repositories
 - name: Add custom GPG keys (Debian/Ubuntu)
   get_url:
     url: "{{ item.gpg_key }}"
@@ -10,7 +45,7 @@
     - ansible_os_family == "Debian"
     - item.gpg_key is defined
 
-# 2. Add Custom Repositories (Debian/Ubuntu)
+# 5. Add Custom Repositories (Debian/Ubuntu)
 - name: Add custom APT repositories
   apt_repository:
     repo: "{{ item.apt_repo }}"
@@ -21,7 +56,7 @@
     - ansible_os_family == "Debian"
     - item.apt_repo is defined
 
-# 3. Add Custom Repositories (Fedora/RedHat)
+# 6. Add Custom Repositories (Fedora/RedHat)
 - name: Add custom DNF repositories
   yum_repository:
     name: "{{ item.name }}"
@@ -34,7 +69,7 @@
     - ansible_os_family == "RedHat"
     - item.yum_repo is defined
 
-# 4. Add Custom Repositories (openSUSE)
+# 7. Add Custom Repositories (openSUSE)
 - name: Add custom Zypper repositories
   zypper_repository:
     name: "{{ item.name }}"
@@ -46,7 +81,7 @@
     - ansible_os_family == "Suse"
     - item.yum_repo is defined or item.zypper_repo is defined
 
-# 5. Special Case: Docker Official Repository (if chosen)
+# 8. Special Case: Docker Official Repository (if chosen)
 - name: Add Docker GPG key (Debian)
   apt_key:
     url: "{{ docker_gpg_key }}"
@@ -71,7 +106,7 @@
     - ansible_os_family in ["RedHat", "Suse"]
     - container_engine == "docker"
 
-# 6. Special Case: VS Code Repository (if method is 'repo')
+# 9. Special Case: VS Code Repository (if method is 'repo')
 - name: Add VS Code GPG key (Debian)
   apt_key:
     url: "{{ vscode_repo_key }}"
@@ -98,3 +133,15 @@
   when:
     - ansible_os_family in ["RedHat", "Suse"]
     - vscode_install_method == "repo"
+
+# 10. Add Ubuntu PPAs (Debian/Pop!_OS only)
+- name: Add custom PPAs
+  apt_repository:
+    repo: "{{ item }}"
+    state: present
+    update_cache: true
+  loop: "{{ custom_ppas }}"
+  when:
+    - ansible_os_family == "Debian"
+    - custom_ppas | length > 0
+  become: true

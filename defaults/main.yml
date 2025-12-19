@@ -38,6 +38,15 @@ custom_repositories: []
 #   yum_repo: "https://dl.google.com/linux/chrome/rpm/stable/x86_64"
 #   gpg_key: "https://dl.google.com/linux/linux_signing_key.pub"
 
+# Ubuntu/Pop!_OS specific PPAs
+# Example: ["ppa:neovim-ppa/stable", "ppa:git-core/ppa"]
+custom_ppas: []
+
+# Direct package installations via URL (Keyrings, proprietary installers, etc.)
+direct_deb_urls: []
+direct_rpm_urls: []
+direct_zypper_urls: []
+
 system_packages: []
 flatpak_packages: []
 snap_packages: []

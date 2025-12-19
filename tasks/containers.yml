@@ -47,7 +47,7 @@
   package:
     name: podman-compose
     state: present
-  when: 
+  when:
     - container_engine == "podman"
     - ansible_os_family in ["RedHat", "Suse"]
   become: true
