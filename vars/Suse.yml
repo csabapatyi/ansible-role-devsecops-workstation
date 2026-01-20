@@ -1,16 +1,58 @@
 ---
+# ------------------------------------------------------------------------------
+# openSUSE Tumbleweed/Leap specific variables
+# ------------------------------------------------------------------------------
+pkg_manager: "zypper"
+pkg_install_cmd: "zypper install -y"
+pkg_update_cmd: "zypper refresh"
+
+# Package name mappings
 docker_package_name: "docker"
-docker_repo_url: "https://download.opensuse.org/repositories/Virtualization:containers/openSUSE_Tumbleweed/Virtualization:containers.repo"
-docker_gpg_key: "" # Usually bundled in repo file for Suse
-
 podman_package_name: "podman"
-
-nvidia_proprietary_packages:
-  - "x11-video-nvidiaG06"
-  - "nvidia-glG06"
-
-vscode_repo_url: "https://packages.microsoft.com/yumrepos/vscode"
-vscode_repo_key: "https://packages.microsoft.com/keys/microsoft.asc"
 vscode_package_name: "code"
+nodejs_package_name: "nodejs"
+npm_package_name: "npm"
 
+# Repository URLs
+docker_repo_url_default: "https://download.opensuse.org/repositories/Virtualization:containers/openSUSE_Tumbleweed/"
+docker_gpg_key_default: ""  # Usually bundled in repo file for Suse
+
+vbox_repo_url_default: "https://download.virtualbox.org/virtualbox/rpm/opensuse/"
+
+vscode_repo_url_default: "https://packages.microsoft.com/yumrepos/vscode"
+vscode_repo_key_default: "https://packages.microsoft.com/keys/microsoft.asc"
+
+# Nvidia packages for openSUSE
+# See: https://en.opensuse.org/SDB:NVIDIA_drivers
+nvidia_default_packages:
+  proprietary:
+    - nvidia-video-G06
+    - nvidia-gl-G06
+    - nvidia-compute-G06
+  open:
+    - nvidia-open-driver-G06-signed-kmp-default
+  nouveau:
+    - xf86-video-nouveau
+
+# Container packages
+docker_packages:
+  - docker
+  - docker-compose
+
+# Virtualization packages
+libvirt_packages:
+  - virt-manager
+  - qemu
+  - libvirt
+  - libvirt-daemon
+  - bridge-utils
+
+virtualbox_packages:
+  - virtualbox
+
+# User groups
+docker_group: "docker"
+libvirt_groups: "libvirt"
+
+# Shell install command
 shell_install_cmd: "zypper install -y"

@@ -1,0 +1,44 @@
+---
+# Ansible Lint Configuration
+
+# Exclude paths from linting
+exclude_paths:
+  - .git/
+  - .github/
+  - molecule/
+  - venv/
+  - .venv/
+
+# Use shared profile (less strict than production)
+profile: shared
+
+# Skip specific rules
+skip_list:
+  - yaml[line-length]
+  - command-instead-of-module  # Sometimes shell/curl is necessary
+  - risky-shell-pipe           # We handle errors appropriately
+  - no-handler                 # Debug tasks don't need to be handlers
+
+# Warn-only rules (won't fail the lint)
+warn_list:
+  - experimental
+  - ignore-errors              # We use it intentionally in some cases
+  - jinja[spacing]
+
+# Enable offline mode (don't download anything)
+offline: false
+
+# Behavior configuration
+use_default_rules: true
+quiet: false
+verbosity: 1
+
+# Kinds - file type identification
+kinds:
+  - tasks: "**/tasks/*.yml"
+  - vars: "**/vars/*.yml"
+  - defaults: "**/defaults/*.yml"
+  - handlers: "**/handlers/*.yml"
+  - playbook: "**/molecule/**/converge.yml"
+  - playbook: "**/molecule/**/verify.yml"
+  - playbook: "**/molecule/**/prepare.yml"

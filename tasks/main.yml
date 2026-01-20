@@ -1,30 +1,87 @@
 ---
+# ------------------------------------------------------------------------------
+# DevSecOps Workstation Role - Main Task File
+# ------------------------------------------------------------------------------
+
+# 1. Load OS-specific variables
 - name: Load OS-specific variables
-  include_vars: "{{ ansible_os_family }}.yml"
+  ansible.builtin.include_vars: "{{ ansible_facts['os_family'] }}.yml"
 
+# 2. Display detected system info
+- name: Display system information
+  ansible.builtin.debug:
+    msg: |
+      Detected System:
+        OS Family: {{ ansible_facts['os_family'] }}
+        Distribution: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}
+        Release: {{ ansible_facts['distribution_release'] }}
+        Architecture: {{ ansible_facts['architecture'] }}
+        User: {{ workstation_user }}
+
+# 3. Configure repositories (must come before package installation)
 - name: Configure Repositories
-  include_tasks: repositories.yml
+  ansible.builtin.include_tasks: repositories.yml
+  tags: [repositories]
 
+# 4. Install system packages
 - name: Install System and URL Packages
-  include_tasks: packages.yml
+  ansible.builtin.include_tasks: packages.yml
+  tags: [packages]
 
-- name: Install Flatpaks and Snaps
-  include_tasks: flatpak_snap.yml
+# 5. Setup container engine
+- name: Setup Container Engine
+  ansible.builtin.include_tasks: containers.yml
+  when: container_engine != "none"
+  tags: [containers, docker, podman]
 
-- name: Configure VS Code
-  include_tasks: vscode.yml
-
-- name: Setup Containers
-  include_tasks: containers.yml
-
+# 6. Setup virtualization
 - name: Setup Virtualization and Infra Tools
-  include_tasks: virtualization.yml
+  ansible.builtin.include_tasks: virtualization.yml
+  when: virtualization_provider != "none" or install_vagrant or install_terraform
+  tags: [virtualization, vagrant, terraform]
 
+# 7. Install Flatpaks and Snaps
+- name: Install Flatpaks and Snaps
+  ansible.builtin.include_tasks: flatpak_snap.yml
+  when: flatpak_packages | length > 0 or snap_packages | length > 0 or install_snapd
+  tags: [flatpak, snap]
+
+# 8. Configure VS Code
+- name: Configure VS Code
+  ansible.builtin.include_tasks: vscode.yml
+  when: vscode_install_method != "none"
+  tags: [vscode]
+
+# 9. Setup shell and prompt
 - name: Setup Shell and Starship
-  include_tasks: shell.yml
+  ansible.builtin.include_tasks: shell.yml
+  tags: [shell, starship]
 
+# 10. Install Rust and Cargo packages
 - name: Install Rust Tools
-  include_tasks: rust.yml
+  ansible.builtin.include_tasks: rust.yml
+  when: rust_cargo_packages | length > 0
+  tags: [rust, cargo]
 
+# 11. Install NPM packages
+- name: Install NPM Packages
+  ansible.builtin.include_tasks: npm.yml
+  when: npm_packages | length > 0
+  tags: [npm, nodejs]
+
+# 12. Clone GitHub repositories
+- name: Clone GitHub Repositories
+  ansible.builtin.include_tasks: github_repos.yml
+  when: github_repos | length > 0
+  tags: [github, repos]
+
+# 13. Install Nvidia drivers
 - name: Install Nvidia Drivers
-  include_tasks: nvidia.yml
+  ansible.builtin.include_tasks: nvidia.yml
+  when: install_nvidia_drivers
+  tags: [nvidia]
+
+# 14. Ricing (fonts, dotfiles, etc.)
+- name: Apply Ricing (Fonts, Dotfiles)
+  ansible.builtin.include_tasks: ricing.yml
+  tags: [ricing, fonts, dotfiles]

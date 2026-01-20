@@ -1,0 +1,9 @@
+# Molecule and testing dependencies
+molecule>=6.0.0
+molecule-plugins[docker]>=23.0.0
+ansible-core>=2.15.0
+ansible-lint>=6.0.0
+pytest>=7.0.0
+pytest-testinfra>=10.0.0
+docker>=6.0.0
+jmespath>=1.0.0

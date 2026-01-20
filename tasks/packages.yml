@@ -1,200 +1,283 @@
 ---
-# 1. Install System Packages based on OS Family
+# ------------------------------------------------------------------------------
+# System Package Installation
+# ------------------------------------------------------------------------------
+
+# ------------------------------------------------------------------------------
+# 1. Install system packages from OS repositories
+# ------------------------------------------------------------------------------
 - name: Install system packages (Debian/Ubuntu)
-  apt:
+  ansible.builtin.apt:
     name: "{{ system_packages }}"
     state: present
-    update_cache: yes
-  when: ansible_os_family == "Debian"
+    update_cache: true
+  when:
+    - ansible_facts['os_family'] == "Debian"
+    - system_packages | length > 0
   become: true
 
 - name: Install system packages (Fedora)
-  dnf:
+  ansible.builtin.dnf:
     name: "{{ system_packages }}"
     state: present
-    update_cache: yes
-  when: ansible_os_family == "RedHat"
+    update_cache: true
+  when:
+    - ansible_facts['os_family'] == "RedHat"
+    - system_packages | length > 0
   become: true
 
 - name: Install system packages (openSUSE)
-  zypper:
+  community.general.zypper:
     name: "{{ system_packages }}"
     state: present
-    update_cache: yes
-  when: ansible_os_family == "Suse"
+    update_cache: true
+  when:
+    - ansible_facts['os_family'] == "Suse"
+    - system_packages | length > 0
   become: true
 
-# 2. Install Packages directly from URLs
-# This is useful for tools that don't provide repos (e.g. specific binary releases)
-- name: Ensure destination directory for URL downloads exists
-  file:
-    path: "{{ item.dest | dirname }}"
-    state: directory
-    mode: '0755'
-  loop: "{{ url_packages }}"
-  when: url_packages | length > 0
+- name: Install system packages (Arch)
+  community.general.pacman:
+    name: "{{ system_packages }}"
+    state: present
+    update_cache: true
+  when:
+    - ansible_facts['os_family'] == "Archlinux"
+    - system_packages | length > 0
   become: true
 
-- name: Download and install packages from URL
-  get_url:
-    url: "{{ item.url }}"
-    dest: "{{ item.dest }}"
-    mode: '0755'
-  loop: "{{ url_packages }}"
-  when: url_packages | length > 0
-  become: true
-
-# 3. Install AppImages
-# We usually store these in a dedicated bin folder in the user's home
-- name: Create AppImage directory
-  file:
-    path: "/home/{{ workstation_user }}/Applications"
-    state: directory
-    owner: "{{ workstation_user }}"
-    group: "{{ workstation_user }}"
-    mode: '0755'
-
-- name: Download AppImages
-  get_url:
-    url: "{{ item.url }}"
-    dest: "/home/{{ workstation_user }}/Applications/{{ item.name }}.AppImage"
-    owner: "{{ workstation_user }}"
-    group: "{{ workstation_user }}"
-    mode: '0755'
-  loop: "{{ appimage_packages }}"
-  when: appimage_packages | length > 0
-
-# 4. Install VS Code via system repo (if chosen)
+# ------------------------------------------------------------------------------
+# 2. Install VS Code via package manager (if vscode_install_method == "repo")
+# ------------------------------------------------------------------------------
 - name: Install VS Code via Package Manager
-  package:
+  ansible.builtin.package:
     name: "{{ vscode_package_name }}"
     state: present
   when: vscode_install_method == "repo"
   become: true
 
+# ------------------------------------------------------------------------------
+# 3. Install binary packages from URLs
+# ------------------------------------------------------------------------------
+- name: Ensure destination directories exist for URL packages
+  ansible.builtin.file:
+    path: "{{ item.dest | dirname }}"
+    state: directory
+    mode: "0755"
+  loop: "{{ url_packages }}"
+  when: url_packages | length > 0
+  become: true
+
+# Simple binary downloads (no extraction needed)
+- name: Download binary packages from URL
+  ansible.builtin.get_url:
+    url: "{{ item.url }}"
+    dest: "{{ item.dest }}"
+    mode: "0755"
+  loop: "{{ url_packages }}"
+  when:
+    - url_packages | length > 0
+    - not (item.extract | default(false))
+  become: true
+
+# Archive downloads (need extraction)
+- name: Download and extract archive packages
+  when:
+    - url_packages | length > 0
+    - item.extract | default(false)
+  become: true
+  block:
+    - name: Create temp directory for archive extraction
+      ansible.builtin.tempfile:
+        state: directory
+        suffix: "_{{ item.name }}"
+      register: temp_dir
+      loop: "{{ url_packages | selectattr('extract', 'defined') | selectattr('extract') | list }}"
+
+    - name: Download and extract archives
+      ansible.builtin.unarchive:
+        src: "{{ item.0.url }}"
+        dest: "{{ item.1.path }}"
+        remote_src: true
+      loop: "{{ (url_packages | selectattr('extract', 'defined') | selectattr('extract') | list) | zip(temp_dir.results) | list }}"
+      when: item.1.path is defined
+
+    - name: Copy extracted binary to destination
+      ansible.builtin.copy:
+        src: "{{ item.1.path }}/{{ item.0.extract_path }}"
+        dest: "{{ item.0.dest }}"
+        mode: "0755"
+        remote_src: true
+      loop: "{{ (url_packages | selectattr('extract', 'defined') | selectattr('extract') | list) | zip(temp_dir.results) | list }}"
+      when:
+        - item.1.path is defined
+        - item.0.extract_path is defined
+
+# ------------------------------------------------------------------------------
+# 4. Install AppImages
+# ------------------------------------------------------------------------------
+- name: Create AppImage directory
+  ansible.builtin.file:
+    path: "/home/{{ workstation_user }}/Applications"
+    state: directory
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0755"
+  when: appimage_packages | length > 0
+
+- name: Download AppImages
+  ansible.builtin.get_url:
+    url: "{{ item.url }}"
+    dest: "/home/{{ workstation_user }}/Applications/{{ item.name }}.AppImage"
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0755"
+  loop: "{{ appimage_packages }}"
+  when: appimage_packages | length > 0
+
+# ------------------------------------------------------------------------------
+# 5. Cloud CLI Tools
+# ------------------------------------------------------------------------------
+
 # GitHub CLI
 - name: Install GitHub CLI
-  package:
+  ansible.builtin.package:
     name: gh
     state: present
   when: install_github_cli
   become: true
+  failed_when: false
 
 # GitLab CLI
 - name: Install GitLab CLI
-  package:
+  ansible.builtin.package:
     name: glab
     state: present
   when: install_gitlab_cli
   become: true
+  failed_when: false
 
-# 1. Google Cloud CLI (Script-based with check)
-- name: Check if Google Cloud SDK is already installed
-  stat:
+# Google Cloud CLI
+- name: Check if Google Cloud SDK is installed
+  ansible.builtin.stat:
     path: /opt/google-cloud-sdk
   register: gcp_sdk_dir
+  when: install_gcp_cli
 
-- name: Install Google Cloud CLI via Script
-  shell: curl https://sdk.cloud.google.com | bash -s -- --disable-prompts --install-dir=/opt
+- name: Install Google Cloud CLI
+  ansible.builtin.shell: |
+    curl -fsSL https://sdk.cloud.google.com | bash -s -- --disable-prompts --install-dir=/opt
+  args:
+    creates: /opt/google-cloud-sdk
   when:
     - install_gcp_cli
-    - not gcp_sdk_dir.stat.exists
+    - not (gcp_sdk_dir.stat.exists | default(false))
   become: true
 
-# 2. AWS CLI v2 (Check then Install)
+# AWS CLI v2
 - name: Check if AWS CLI is installed
-  command: which aws
+  ansible.builtin.command: which aws
   register: aws_check
-  ignore_errors: true
+  failed_when: false
   changed_when: false
+  when: install_aws_cli
 
 - name: Install AWS CLI v2
+  when:
+    - install_aws_cli
+    - aws_check.rc | default(1) != 0
+  become: true
   block:
     - name: Download AWS CLI
-      unarchive:
+      ansible.builtin.unarchive:
         src: https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip
         dest: /tmp
         remote_src: true
+
     - name: Run AWS Installer
-      command: /tmp/aws/install --update
-  when:
-    - install_aws_cli
-    - aws_check.rc != 0
-  become: true
+      ansible.builtin.command: /tmp/aws/install --update
+      args:
+        creates: /usr/local/bin/aws
 
-# 3. AWS SSM Session Manager Plugin (Validation-based)
-- name: Check if SSM Session Manager Plugin is installed
-  shell: session-manager-plugin --version
-  register: ssm_plugin_check
-  ignore_errors: true
+# AWS SSM Session Manager Plugin
+- name: Check if SSM Plugin is installed
+  ansible.builtin.command: which session-manager-plugin
+  register: ssm_check
+  failed_when: false
   changed_when: false
+  when: install_aws_cli
 
-- name: Install AWS SSM Session Manager Plugin (Debian/Ubuntu)
-  apt:
+- name: Install SSM Session Manager Plugin (Debian)
+  ansible.builtin.apt:
     deb: "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb"
     state: present
   when:
     - install_aws_cli
-    - ansible_os_family == "Debian"
-    - ssm_plugin_check.rc != 0
+    - ansible_facts['os_family'] == "Debian"
+    - ssm_check.rc | default(1) != 0
   become: true
 
-- name: Install AWS SSM Session Manager Plugin (Fedora/RedHat)
-  dnf:
+- name: Install SSM Session Manager Plugin (Fedora)
+  ansible.builtin.dnf:
     name: "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/linux_64bit/session-manager-plugin.rpm"
     state: present
     disable_gpg_check: true
   when:
     - install_aws_cli
-    - ansible_os_family == "RedHat"
-    - ssm_plugin_check.rc != 0
+    - ansible_facts['os_family'] == "RedHat"
+    - ssm_check.rc | default(1) != 0
   become: true
 
-- name: Install AWS SSM Session Manager Plugin (openSUSE)
-  zypper:
-    name: "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/linux_64bit/session-manager-plugin.rpm"
-    state: present
-    disable_gpg_check: true
-  when:
-    - install_aws_cli
-    - ansible_os_family == "Suse"
-    - ssm_plugin_check.rc != 0
-  become: true
-
-# Azure CLI (Check then Install)
+# Azure CLI
 - name: Check if Azure CLI is installed
-  command: which az
+  ansible.builtin.command: which az
   register: az_check
-  ignore_errors: true
+  failed_when: false
   changed_when: false
+  when: install_azure_cli
 
-- name: Install Azure CLI (Debian/Ubuntu)
-  shell: curl -sL https://aka.ms/InstallAzureCLIDeb | bash
+- name: Install Azure CLI (Debian)
+  ansible.builtin.shell: |
+    curl -sL https://aka.ms/InstallAzureCLIDeb | bash
+  args:
+    creates: /usr/bin/az
   when:
     - install_azure_cli
-    - ansible_os_family == "Debian"
-    - az_check.rc != 0
+    - ansible_facts['os_family'] == "Debian"
+    - az_check.rc | default(1) != 0
   become: true
 
-- name: Install Azure CLI (Fedora/RedHat)
-  shell: rpm --import https://packages.microsoft.com/keys/microsoft.asc && dnf install -y https://packages.microsoft.com/config/fedora/$(rpm -E %fedora)/packages-microsoft-prod.rpm && dnf install -y azure-cli
+- name: Install Azure CLI (Fedora)
+  ansible.builtin.shell: |
+    rpm --import https://packages.microsoft.com/keys/microsoft.asc
+    dnf install -y https://packages.microsoft.com/config/fedora/$(rpm -E %fedora)/packages-microsoft-prod.rpm
+    dnf install -y azure-cli
+  args:
+    creates: /usr/bin/az
   when:
     - install_azure_cli
-    - ansible_os_family == "RedHat"
-    - az_check.rc != 0
+    - ansible_facts['os_family'] == "RedHat"
+    - az_check.rc | default(1) != 0
   become: true
 
-# Neovim (Check then Install Binary)
+# ------------------------------------------------------------------------------
+# 6. Neovim
+# ------------------------------------------------------------------------------
 - name: Check if Neovim is installed
-  command: which nvim
+  ansible.builtin.command: which nvim
   register: nvim_check
-  ignore_errors: true
+  failed_when: false
   changed_when: false
+  when: install_neovim | default(false)
 
-- name: Install Neovim Stable
+- name: Install Neovim
+  when:
+    - install_neovim | default(false)
+    - nvim_check.rc | default(1) != 0
+  become: true
   block:
     - name: Download and Extract Nvim Binary
-      unarchive:
+      ansible.builtin.unarchive:
         src: https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz
         dest: /opt
         remote_src: true
@@ -202,12 +285,8 @@
         group: root
 
     - name: Link Nvim to Path
-      file:
+      ansible.builtin.file:
         src: /opt/nvim-linux-x86_64/bin/nvim
         dest: /usr/local/bin/nvim
         state: link
         force: true
-  when:
-    - nvim_check.rc != 0
-    - ("'nvim' in system_packages") or (install_neovim | default(true))
-  become: true

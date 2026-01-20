@@ -1,85 +1,163 @@
 ---
-# 1. Ensure the target shell is installed
+# Shell Configuration
+
+# 1. Install and configure user shell
 - name: Ensure target shell is installed
-  package:
+  ansible.builtin.package:
     name: "{{ workstation_user_shell | basename }}"
     state: present
   become: true
 
-# 2. Set the default shell for the user
 - name: Set the user shell
-  user:
+  ansible.builtin.user:
     name: "{{ workstation_user }}"
     shell: "{{ workstation_user_shell }}"
   become: true
 
-# 3. Install Starship
-- name: Check if Starship is installed
-  command: which starship
-  register: starship_check
-  ignore_errors: true
-  changed_when: false
+# 2. Determine shell RC file path
+- name: Set shell RC path for fish
+  ansible.builtin.set_fact:
+    shell_rc_path: "/home/{{ workstation_user }}/.config/fish/config.fish"
+  when: "'fish' in workstation_user_shell"
 
-- name: Download and Install Starship
-  shell: "curl -sS https://starship.rs/install.sh | sh -s -- -y"
+- name: Set shell RC path for zsh
+  ansible.builtin.set_fact:
+    shell_rc_path: "/home/{{ workstation_user }}/.zshrc"
+  when: "'zsh' in workstation_user_shell"
+
+- name: Set shell RC path for bash (default)
+  ansible.builtin.set_fact:
+    shell_rc_path: "/home/{{ workstation_user }}/.bashrc"
+  when: shell_rc_path is not defined
+
+# 3. Ensure config directories exist
+- name: Ensure Fish config directory exists
+  ansible.builtin.file:
+    path: "/home/{{ workstation_user }}/.config/fish"
+    state: directory
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0755"
+  when: "'fish' in workstation_user_shell"
   become: true
+  become_user: "{{ workstation_user }}"
+
+# 4. Install Starship prompt
+- name: Check if Starship is installed
+  ansible.builtin.command: which starship
+  register: starship_check
+  failed_when: false
+  changed_when: false
+  when: install_starship
+
+- name: Download Starship installer
+  ansible.builtin.get_url:
+    url: https://starship.rs/install.sh
+    dest: /tmp/starship-install.sh
+    mode: "0755"
   when:
     - install_starship
-    - starship_check.rc != 0
+    - starship_check.rc | default(1) != 0
+  become: true
 
-# 4. Configure Starship
+- name: Install Starship
+  ansible.builtin.command: /tmp/starship-install.sh -y
+  args:
+    creates: /usr/local/bin/starship
+  when:
+    - install_starship
+    - starship_check.rc | default(1) != 0
+  become: true
+
 - name: Create Starship config directory
-  file:
+  ansible.builtin.file:
     path: "{{ starship_config_dir | expanduser }}"
     state: directory
     owner: "{{ workstation_user }}"
     group: "{{ workstation_user }}"
-    mode: '0755'
+    mode: "0755"
+  when: install_starship
+  become: true
+  become_user: "{{ workstation_user }}"
 
 - name: Deploy Starship configuration
-  template:
+  ansible.builtin.template:
     src: starship.toml.j2
     dest: "{{ starship_config_dir | expanduser }}/starship.toml"
     owner: "{{ workstation_user }}"
     group: "{{ workstation_user }}"
-    mode: '0644'
+    mode: "0644"
   when:
     - install_starship
     - load_custom_starship_config
+  become: true
+  become_user: "{{ workstation_user }}"
 
-# 5. Initialize Starship in Shell RC files
+# 5. Initialize Starship in shell RC files
 - name: Initialize Starship in .bashrc
-  lineinfile:
+  ansible.builtin.lineinfile:
     path: "/home/{{ workstation_user }}/.bashrc"
     line: 'eval "$(starship init bash)"'
     state: present
+    create: true
+    mode: "0644"
   when:
-    - workstation_user_shell == "/bin/bash"
     - install_starship
+    - "'bash' in workstation_user_shell"
+  become: true
+  become_user: "{{ workstation_user }}"
 
 - name: Initialize Starship in .zshrc
-  lineinfile:
+  ansible.builtin.lineinfile:
     path: "/home/{{ workstation_user }}/.zshrc"
     line: 'eval "$(starship init zsh)"'
-    create: yes
     state: present
+    create: true
+    mode: "0644"
   when:
-    - workstation_user_shell == "/bin/zsh"
     - install_starship
+    - "'zsh' in workstation_user_shell"
+  become: true
+  become_user: "{{ workstation_user }}"
 
 - name: Initialize Starship in fish config
-  block:
-    - name: Ensure fish config directory exists
-      file:
-        path: "/home/{{ workstation_user }}/.config/fish"
-        state: directory
-
-    - name: Add Starship to config.fish
-      lineinfile:
-        path: "/home/{{ workstation_user }}/.config/fish/config.fish"
-        line: 'starship init fish | source'
-        create: yes
-        state: present
+  ansible.builtin.lineinfile:
+    path: "/home/{{ workstation_user }}/.config/fish/config.fish"
+    line: 'starship init fish | source'
+    state: present
+    create: true
+    mode: "0644"
   when:
-    - workstation_user_shell == "/usr/bin/fish" or workstation_user_shell == "/bin/fish"
     - install_starship
+    - "'fish' in workstation_user_shell"
+  become: true
+  become_user: "{{ workstation_user }}"
+
+# 6. Inject custom shell content
+- name: Inject custom content into shell RC
+  ansible.builtin.blockinfile:
+    path: "{{ shell_rc_path }}"
+    marker: "# {mark} ANSIBLE MANAGED BLOCK: Custom Shell Settings"
+    block: "{{ custom_shell_content }}"
+    create: true
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0644"
+  when:
+    - custom_shell_content is defined
+    - custom_shell_content | length > 0
+  become: true
+  become_user: "{{ workstation_user }}"
+
+# 7. Add shell aliases
+- name: Add shell aliases
+  ansible.builtin.lineinfile:
+    path: "{{ shell_rc_path }}"
+    line: "alias {{ item.alias }}='{{ item.command }}'"
+    state: present
+    create: true
+    mode: "0644"
+  loop: "{{ custom_shell_aliases }}"
+  when: custom_shell_aliases | length > 0
+  become: true
+  become_user: "{{ workstation_user }}"

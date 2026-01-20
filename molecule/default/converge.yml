@@ -1,0 +1,83 @@
+---
+#------------------------------------------------------------------------------
+# Molecule Converge Playbook
+#------------------------------------------------------------------------------
+# This playbook runs the role against test containers
+#------------------------------------------------------------------------------
+
+- name: Converge
+  hosts: all
+  gather_facts: true
+  become: true
+
+  vars:
+    # Test configuration - override defaults for CI/CD environment
+    workstation_user: "testuser"
+    workstation_user_shell: "/bin/bash"
+
+    # Disable features that require real hardware or external services
+    install_nvidia_drivers: false
+    container_engine: "none" # Docker-in-Docker is complex
+    virtualization_provider: "none" # KVM not available in containers
+    install_vagrant: false
+    install_terraform: false
+
+    # Test basic package installation
+    system_packages:
+      - curl
+      - git
+      - jq
+      - tree
+
+    # Test flatpak (if available)
+    flatpak_packages: []
+
+    # Disable snap (requires snapd daemon)
+    install_snapd: false
+    snap_packages: []
+
+    # Disable cloud CLIs (network dependent, slow)
+    install_aws_cli: false
+    install_azure_cli: false
+    install_gcp_cli: false
+    install_gitlab_cli: false
+    install_github_cli: false
+
+    # VS Code - skip in CI
+    vscode_install_method: "none"
+    vscode_extensions: []
+
+    # Test rust/cargo installation
+    rust_cargo_packages: []
+
+    # Skip npm in basic test
+    npm_packages: []
+
+    # Skip github repos
+    github_repos: []
+
+    # Shell configuration
+    install_starship: false
+    custom_shell_content: |
+      # Test shell configuration
+      export TEST_VAR="molecule_test"
+
+    # Skip fonts and dotfiles
+    nerd_font_urls: []
+    dotfiles_repo: ""
+
+    # Skip neovim
+    install_neovim: false
+
+  pre_tasks:
+    - name: Display test environment info
+      ansible.builtin.debug:
+        msg: |
+          Testing on: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}
+          OS Family: {{ ansible_facts['os_family'] }}
+          Architecture: {{ ansible_facts['architecture'] }}
+
+  roles:
+    # Molecule sets MOLECULE_PROJECT_DIRECTORY to the role root
+    # The roles_path in molecule.yml points to the parent directory
+    - role: csabapatyi.devsecops-workstation

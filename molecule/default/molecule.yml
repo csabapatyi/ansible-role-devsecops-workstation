@@ -1,0 +1,149 @@
+---
+#------------------------------------------------------------------------------
+# Molecule Configuration for DevSecOps Workstation Role
+#------------------------------------------------------------------------------
+# This is the default scenario that tests the role against multiple platforms
+#------------------------------------------------------------------------------
+
+dependency:
+  name: galaxy
+  options:
+    requirements-file: requirements.yml
+    force: false
+
+driver:
+  name: docker
+
+platforms:
+  # Ubuntu 24.04 LTS (Noble Numbat)
+  - name: ubuntu-2404
+    image: ubuntu:24.04
+    dockerfile: Dockerfile.ubuntu.j2
+    pre_build_image: false
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    cgroupns_mode: host
+    command: /lib/systemd/systemd
+    groups:
+      - debian_family
+
+  # Ubuntu 25.10 (Questing Quokka)
+  - name: ubuntu-2510
+    image: ubuntu:25.10
+    dockerfile: Dockerfile.ubuntu.j2
+    pre_build_image: false
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    cgroupns_mode: host
+    command: /lib/systemd/systemd
+    groups:
+      - debian_family
+
+  # Fedora 42
+  - name: fedora-42
+    image: fedora:42
+    dockerfile: Dockerfile.fedora.j2
+    pre_build_image: false
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    cgroupns_mode: host
+    command: /usr/sbin/init
+    groups:
+      - redhat_family
+
+  # Fedora 43
+  - name: fedora-43
+    image: fedora:43
+    dockerfile: Dockerfile.fedora.j2
+    pre_build_image: false
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    cgroupns_mode: host
+    command: /usr/sbin/init
+    groups:
+      - redhat_family
+
+  # Arch Linux (latest rolling)
+  - name: archlinux
+    image: archlinux:latest
+    dockerfile: Dockerfile.arch.j2
+    pre_build_image: false
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    cgroupns_mode: host
+    command: /usr/sbin/init
+    groups:
+      - arch_family
+
+  # openSUSE Tumbleweed (rolling)
+  - name: opensuse-tumbleweed
+    image: opensuse/tumbleweed:latest
+    dockerfile: Dockerfile.opensuse.j2
+    pre_build_image: false
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    cgroupns_mode: host
+    command: /usr/lib/systemd/systemd
+    groups:
+      - suse_family
+
+provisioner:
+  name: ansible
+  log: true
+  config_options:
+    defaults:
+      callbacks_enabled: ansible.posix.profile_tasks
+      stdout_callback: ansible.builtin.yaml
+      result_format: yaml
+      roles_path: ${MOLECULE_PROJECT_DIRECTORY}/../:~/.ansible/roles:/usr/share/ansible/roles:/etc/ansible/roles
+      deprecation_warnings: false
+    ssh_connection:
+      pipelining: true
+  playbooks:
+    converge: converge.yml
+    verify: verify.yml
+  inventory:
+    group_vars:
+      all:
+        # Minimal test configuration
+        workstation_user: "testuser"
+        workstation_user_shell: "/bin/bash"
+        install_nvidia_drivers: false
+        container_engine: "none"
+        virtualization_provider: "none"
+        install_vagrant: false
+        install_terraform: false
+        vscode_install_method: "none"
+        install_starship: false
+        install_snapd: false
+        install_aws_cli: false
+        install_azure_cli: false
+        install_gcp_cli: false
+        install_gitlab_cli: false
+        install_github_cli: false
+        install_neovim: false
+
+verifier:
+  name: ansible
+
+scenario:
+  name: default
+  test_sequence:
+    - dependency
+    - cleanup
+    - destroy
+    - syntax
+    - create
+    - prepare
+    - converge
+    - idempotence
+    - side_effect
+    - verify
+    - cleanup
+    - destroy

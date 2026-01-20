@@ -1,0 +1,48 @@
+---
+# ------------------------------------------------------------------------------
+# Arch Linux specific variables
+# ------------------------------------------------------------------------------
+pkg_manager: "pacman"
+pkg_install_cmd: "pacman -S --noconfirm --needed"
+pkg_update_cmd: "pacman -Sy"
+
+# Package name mappings
+docker_package_name: "docker"
+podman_package_name: "podman"
+vscode_package_name: "code"
+nodejs_package_name: "nodejs"
+npm_package_name: "npm"
+
+# Nvidia packages for Arch
+nvidia_default_packages:
+  proprietary:
+    - nvidia
+    - nvidia-utils
+    - nvidia-settings
+  open:
+    - nvidia-open
+    - nvidia-utils
+    - nvidia-settings
+  nouveau:
+    - xf86-video-nouveau
+
+# Container packages
+docker_packages:
+  - docker
+  - docker-compose
+  - docker-buildx
+
+# Virtualization packages
+libvirt_packages:
+  - virt-manager
+  - qemu-full
+  - libvirt
+  - dnsmasq
+  - bridge-utils
+
+virtualbox_packages:
+  - virtualbox
+  - virtualbox-host-modules-arch
+
+# Shell install command
+shell_install_cmd: "pacman -S --noconfirm --needed"

@@ -1,78 +1,233 @@
 ---
+# ------------------------------------------------------------------------------
+# DevSecOps Workstation Role - Default Variables
+# ------------------------------------------------------------------------------
+# Override these in your extra-vars file (e.g., os_vars/kubuntu_25.10_extra-vars.yml)
+# ------------------------------------------------------------------------------
+
+# ------------------------------------------------------------------------------
 # User Configuration
+# ------------------------------------------------------------------------------
 workstation_user: "{{ ansible_user_id }}"
-workstation_user_shell: "/bin/bash"
+workstation_user_shell: "/bin/bash" # Options: /bin/bash, /bin/zsh, /usr/bin/fish
 
+# ------------------------------------------------------------------------------
+# Package Installation
+# ------------------------------------------------------------------------------
+# System packages to install via OS package manager (apt, dnf, pacman, zypper)
+system_packages: []
+# Example:
+#   - htop
+#   - tree
+#   - jq
+
+# ------------------------------------------------------------------------------
+# Repository Configuration
+# ------------------------------------------------------------------------------
+# Custom repositories with GPG keys
+custom_repositories: []
+# Example structure:
+#   - name: "google-chrome"
+#     # For Debian/Ubuntu:
+#     apt_repo: "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main"
+#     # For Fedora/RHEL:
+#     yum_repo: "https://dl.google.com/linux/chrome/rpm/stable/x86_64"
+#     # For openSUSE:
+#     zypper_repo: "https://dl.google.com/linux/chrome/rpm/stable/x86_64"
+#     # GPG key URL (will be converted to .gpg format on Debian)
+#     gpg_key: "https://dl.google.com/linux/linux_signing_key.pub"
+
+# Ubuntu/Pop!_OS specific PPAs (ignored on non-Debian systems)
+custom_ppas: []
+# Example:
+#   - "ppa:neovim-ppa/stable"
+#   - "ppa:git-core/ppa"
+
+# Direct package URL installations (for repo keyring packages, etc.)
+# These are installed BEFORE repositories are configured
+direct_deb_urls: [] # Debian/Ubuntu .deb files
+direct_rpm_urls: [] # Fedora/RHEL .rpm files
+direct_zypper_urls: [] # openSUSE .rpm files
+direct_pacman_urls: [] # Arch .pkg.tar.zst files (rare)
+# Example:
+#   direct_deb_urls:
+#     - "https://example.com/repo-keyring.deb"
+
+# ------------------------------------------------------------------------------
 # Nvidia Configuration
+# ------------------------------------------------------------------------------
 install_nvidia_drivers: false
-nvidia_driver_type: "proprietary" # options: proprietary, open
+nvidia_driver_type: "proprietary" # Options: proprietary, open, nouveau
 
+# Override these if your distro uses different package names
+# If not set, will use OS-specific defaults from vars/*.yml
+nvidia_packages: []
+# Example for Ubuntu:
+#   - nvidia-driver-580
+#   - nvidia-utils-580
+#   - nvidia-settings
+
+# ------------------------------------------------------------------------------
 # Container Engine
-container_engine: "docker" # options: docker, podman
+# ------------------------------------------------------------------------------
+container_engine: "none" # Options: docker, podman, none
 
-# Virtualization Configuration
-# virtualization_provider: "virtualbox" or "libvirt"
-virtualization_provider: "libvirt"
+# Docker-specific settings (used when container_engine == "docker")
+docker_gpg_key: "https://download.docker.com/linux/ubuntu/gpg"
+docker_repo_url: "https://download.docker.com/linux/ubuntu"
+
+# ------------------------------------------------------------------------------
+# Virtualization
+# ------------------------------------------------------------------------------
+virtualization_provider: "none" # Options: libvirt, virtualbox, none
 install_vagrant: false
-
-# VirtualBox Specific
-install_vbox_extpack: false
-
-# Cloud/Infrastructure (from dedicated repos)
 install_terraform: false
 
-# VS Code Configuration
-vscode_install_method: "repo" # options: repo, flatpak
-vscode_extensions: []
+# VirtualBox settings
+install_vbox_extpack: false
+vbox_gpg_key: "https://www.virtualbox.org/download/oracle_vbox_2016.asc"
+vbox_repo_url: "https://download.virtualbox.org/virtualbox/debian"
 
-# Shell / Starship
-install_starship: true
+# HashiCorp settings (for Vagrant/Terraform repos)
+hashicorp_gpg_key: "https://apt.releases.hashicorp.com/gpg"
+hashicorp_repo_url: "https://rpm.releases.hashicorp.com/fedora/hashicorp.repo"
+
+# Fallback release codename for repos that don't support your distro yet
+# E.g., Kubuntu 25.10 "questing" -> use "noble" (24.04 LTS)
+hashicorp_fallback_release: ""
+vbox_fallback_release: ""
+
+# ------------------------------------------------------------------------------
+# Flatpak Configuration
+# ------------------------------------------------------------------------------
+# Custom Flatpak remotes to add (Flathub is always added by default)
+flatpak_remotes: []
+# Example:
+#   - name: "flathub-beta"
+#     url: "https://flathub.org/beta-repo/flathub-beta.flatpakrepo"
+
+# Flatpak packages to install
+flatpak_packages: []
+# Example:
+#   - com.spotify.Client
+#   - org.mozilla.firefox
+
+# ------------------------------------------------------------------------------
+# Snap Configuration
+# ------------------------------------------------------------------------------
+install_snapd: false # Set to true to install snapd
+snap_packages: []
+# Example:
+#   - name: "code"
+#     classic: true
+#   # Or simple format:
+#   - "spotify"
+
+# ------------------------------------------------------------------------------
+# VS Code Configuration
+# ------------------------------------------------------------------------------
+vscode_install_method: "none" # Options: repo, flatpak, snap, none
+vscode_repo_url: "https://packages.microsoft.com/repos/code"
+vscode_repo_key: "https://packages.microsoft.com/keys/microsoft.asc"
+vscode_extensions: []
+# Example:
+#   - ms-python.python
+#   - redhat.ansible
+
+# ------------------------------------------------------------------------------
+# Shell Configuration
+# ------------------------------------------------------------------------------
+install_starship: false
 load_custom_starship_config: false
 starship_config_dir: "~/.config"
 
-# Lists for Software
-custom_repositories: []
-# Example structure:
-# - name: "google-chrome"
-#   apt_repo: "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main"
-#   yum_repo: "https://dl.google.com/linux/chrome/rpm/stable/x86_64"
-#   gpg_key: "https://dl.google.com/linux/linux_signing_key.pub"
+# Custom shell configuration to inject into RC file
+custom_shell_content: ""
+# Example:
+#   custom_shell_content: |
+#     alias k="kubectl"
+#     alias g="git"
+#     export EDITOR=nvim
 
-# Ubuntu/Pop!_OS specific PPAs
-# Example: ["ppa:neovim-ppa/stable", "ppa:git-core/ppa"]
-custom_ppas: []
+# Shell aliases (alternative to custom_shell_content)
+custom_shell_aliases: []
+# Example:
+#   - { alias: "k", command: "kubectl" }
+#   - { alias: "g", command: "git" }
 
-# Direct package installations via URL (Keyrings, proprietary installers, etc.)
-direct_deb_urls: []
-direct_rpm_urls: []
-direct_zypper_urls: []
-
-system_packages: []
-flatpak_packages: []
-snap_packages: []
-appimage_packages: [] # Logic will handle downloads
+# ------------------------------------------------------------------------------
+# Rust / Cargo Packages
+# ------------------------------------------------------------------------------
 rust_cargo_packages: []
-url_packages: []
-# Example structure:
-# - name: "some-tool"
-#   url: "https://example.com/tool.tar.gz"
-#   dest: "/usr/local/bin/tool"
+# Example:
+#   - bat
+#   - eza
+#   - ripgrep
+#   - fd-find
 
-# Cloud CLIs
+# ------------------------------------------------------------------------------
+# NPM Global Packages
+# ------------------------------------------------------------------------------
+npm_packages: []
+# Example:
+#   - typescript
+#   - prettier
+#   - eslint
+
+# ------------------------------------------------------------------------------
+# URL-based Binary Downloads
+# ------------------------------------------------------------------------------
+url_packages: []
+# Example:
+#   - name: "kubectl"
+#     url: "https://dl.k8s.io/release/v1.28.0/bin/linux/amd64/kubectl"
+#     dest: "/usr/local/bin/kubectl"
+#   - name: "helm"
+#     url: "https://get.helm.sh/helm-v3.14.0-linux-amd64.tar.gz"
+#     dest: "/usr/local/bin/helm"
+#     extract: true                    # For archives
+#     extract_path: "linux-amd64/helm" # Path inside archive
+
+# ------------------------------------------------------------------------------
+# AppImage Downloads
+# ------------------------------------------------------------------------------
+appimage_packages: []
+# Example:
+#   - name: "Neovim"
+#     url: "https://github.com/neovim/neovim/releases/download/stable/nvim.appimage"
+
+# ------------------------------------------------------------------------------
+# GitHub Repository Cloning
+# ------------------------------------------------------------------------------
+github_repos: []
+# Example:
+#   - repo: "https://github.com/user/project.git"
+#     dest: "~/Projects/project"
+#     version: "main"  # Optional: branch, tag, or commit
+
+# ------------------------------------------------------------------------------
+# Cloud CLI Tools
+# ------------------------------------------------------------------------------
 install_aws_cli: false
 install_azure_cli: false
 install_gcp_cli: false
 install_gitlab_cli: false
 install_github_cli: false
 
-# Ricing & Dotfiles
-# Provide a list of Download URLs for Nerd Font ZIP files
-nerd_font_urls:
-  - "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/JetBrainsMono.zip"
-  - "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/Hack.zip"
+# ------------------------------------------------------------------------------
+# Dotfiles & Ricing
+# ------------------------------------------------------------------------------
 dotfiles_repo: "" # e.g., "https://github.com/username/dotfiles.git"
 dotfiles_dest: "~/.dotfiles"
-custom_shell_aliases: []
+dotfiles_version: "main"
+
+# Nerd Fonts - provide direct ZIP URLs
+nerd_font_urls: []
 # Example:
-#  - { alias: "k", command: "kubectl" }
-#  - { alias: "g", command: "git" }
+#   - "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/JetBrainsMono.zip"
+#   - "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/FiraCode.zip"
+
+# ------------------------------------------------------------------------------
+# Misc
+# ------------------------------------------------------------------------------
+install_neovim: false

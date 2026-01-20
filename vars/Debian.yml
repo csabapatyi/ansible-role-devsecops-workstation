@@ -1,23 +1,68 @@
 ---
-# OS Specific package names
+# ------------------------------------------------------------------------------
+# Debian/Ubuntu/Pop!_OS specific variables
+# ------------------------------------------------------------------------------
+pkg_manager: "apt"
+pkg_install_cmd: "apt-get install -y"
+pkg_update_cmd: "apt-get update"
+
+# Package name mappings
 docker_package_name: "docker-ce"
-docker_repo_url: "https://download.docker.com/linux/ubuntu"
-docker_gpg_key: "https://download.docker.com/linux/ubuntu/gpg"
-
 podman_package_name: "podman"
-
-hashicorp_repo_url: "deb [arch=amd64] https://apt.releases.hashicorp.com {{ ansible_distribution_release }} main"
-hashicorp_gpg_key: "https://apt.releases.hashicorp.com/gpg"
-
-vbox_repo_url: "deb [arch=amd64] https://download.virtualbox.org/virtualbox/debian {{ ansible_distribution_release }} contrib"
-vbox_gpg_key: "https://www.virtualbox.org/download/oracle_vbox_2016.asc"
-
-nvidia_proprietary_packages:
-  - "system76-driver-nvidia" # Specific to Pop!_OS
-  - "nvidia-settings"
-
-vscode_repo_url: "deb [arch=amd64] https://packages.microsoft.com/repos/code stable main"
-vscode_repo_key: "https://packages.microsoft.com/keys/microsoft.asc"
 vscode_package_name: "code"
+nodejs_package_name: "nodejs"
+npm_package_name: "npm"
 
+# Repository URLs (can be overridden in extra-vars)
+docker_repo_url_default: "https://download.docker.com/linux/ubuntu"
+docker_gpg_key_default: "https://download.docker.com/linux/ubuntu/gpg"
+
+hashicorp_repo_url_default: "https://apt.releases.hashicorp.com"
+hashicorp_gpg_key_default: "https://apt.releases.hashicorp.com/gpg"
+
+vbox_repo_url_default: "https://download.virtualbox.org/virtualbox/debian"
+vbox_gpg_key_default: "https://www.virtualbox.org/download/oracle_vbox_2016.asc"
+
+vscode_repo_url_default: "https://packages.microsoft.com/repos/code"
+vscode_repo_key_default: "https://packages.microsoft.com/keys/microsoft.asc"
+
+# Nvidia packages for Debian/Ubuntu
+# User should override 'nvidia_packages' with correct version for their GPU
+nvidia_default_packages:
+  proprietary:
+    - nvidia-driver
+    - nvidia-settings
+  open:
+    - nvidia-driver
+    - nvidia-kernel-open-dkms
+    - nvidia-settings
+  nouveau:
+    - xserver-xorg-video-nouveau
+
+# Container packages
+docker_packages:
+  - docker-ce
+  - docker-ce-cli
+  - containerd.io
+  - docker-buildx-plugin
+  - docker-compose-plugin
+
+# Virtualization packages
+libvirt_packages:
+  - virt-manager
+  - qemu-kvm
+  - qemu-utils
+  - libvirt-daemon
+  - libvirt-daemon-system
+  - bridge-utils
+  - virtinst
+
+virtualbox_packages:
+  - virtualbox-7.0
+
+# User groups
+docker_group: "docker"
+libvirt_groups: "libvirt,kvm"
+
+# Shell install command
 shell_install_cmd: "apt-get install -y"

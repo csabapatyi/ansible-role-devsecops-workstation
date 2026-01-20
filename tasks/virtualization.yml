@@ -1,92 +1,170 @@
 ---
-# 1. Dedicated Repositories for HashiCorp (Vagrant/Terraform)
-- name: Add HashiCorp GPG key (Debian)
-  apt_key:
-    url: "{{ hashicorp_gpg_key }}"
-    state: present
-  when: (install_vagrant or install_terraform) and ansible_os_family == "Debian"
-  become: true
+# ------------------------------------------------------------------------------
+# Virtualization Setup (Libvirt/VirtualBox) and HashiCorp Tools
+# ------------------------------------------------------------------------------
 
-- name: Add HashiCorp Repository (Debian)
-  apt_repository:
-    repo: "{{ hashicorp_repo_url }}"
-    state: present
-  when: (install_vagrant or install_terraform) and ansible_os_family == "Debian"
+# ------------------------------------------------------------------------------
+# 1. HashiCorp Repository (for Vagrant/Terraform)
+# ------------------------------------------------------------------------------
+- name: Setup HashiCorp repository (Debian)
+  when:
+    - ansible_facts['os_family'] == "Debian"
+    - install_vagrant or install_terraform
   become: true
+  block:
+    - name: Download HashiCorp GPG key
+      ansible.builtin.get_url:
+        url: "{{ hashicorp_gpg_key }}"
+        dest: /usr/share/keyrings/hashicorp-archive-keyring.asc
+        mode: "0644"
 
-- name: Add HashiCorp Repository (Fedora/Suse)
-  get_url:
+    - name: Convert HashiCorp GPG key to binary format
+      ansible.builtin.shell: |
+        gpg --dearmor < /usr/share/keyrings/hashicorp-archive-keyring.asc \
+          > /usr/share/keyrings/hashicorp-archive-keyring.gpg
+      args:
+        creates: /usr/share/keyrings/hashicorp-archive-keyring.gpg
+
+    - name: Set HashiCorp repo release name
+      ansible.builtin.set_fact:
+        hashicorp_release: "{{ hashicorp_fallback_release | default(ansible_facts['distribution_release']) }}"
+
+    - name: Add HashiCorp Repository
+      ansible.builtin.apt_repository:
+        repo: >-
+          deb [arch=amd64 signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg]
+          https://apt.releases.hashicorp.com {{ hashicorp_release }} main
+        state: present
+        filename: hashicorp
+        update_cache: true
+
+- name: Setup HashiCorp repository (Fedora/openSUSE)
+  ansible.builtin.get_url:
     url: "{{ hashicorp_repo_url }}"
     dest: /etc/yum.repos.d/hashicorp.repo
-  when: (install_vagrant or install_terraform) and ansible_os_family in ["RedHat", "Suse"]
+    mode: "0644"
+  when:
+    - ansible_facts['os_family'] in ["RedHat", "Suse"]
+    - install_vagrant or install_terraform
   become: true
 
-# 2. Install Vagrant and Terraform
+# ------------------------------------------------------------------------------
+# 2. Install HashiCorp Tools
+# ------------------------------------------------------------------------------
+- name: Build list of HashiCorp tools to install
+  ansible.builtin.set_fact:
+    hashicorp_tools: >-
+      {{
+        (install_vagrant | ternary(['vagrant'], [])) +
+        (install_terraform | ternary(['terraform'], []))
+      }}
+
 - name: Install HashiCorp Tools
-  package:
-    name: "{{ items_list }}"
+  ansible.builtin.package:
+    name: "{{ hashicorp_tools }}"
     state: present
-  vars:
-    items_list: "{{ [ (install_vagrant | ternary('vagrant', None)), (install_terraform | ternary('terraform', None)) ] | select('string') | list }}"
-  when: install_vagrant or install_terraform
+  when: hashicorp_tools | length > 0
   become: true
 
-# 3. Virtualization Choice: Libvirt / QEMU / KVM
-- name: Install Virt-Manager and Libvirt stack
+# ------------------------------------------------------------------------------
+# 3. Libvirt/KVM Setup
+# ------------------------------------------------------------------------------
+- name: Install Libvirt/KVM stack
+  when: virtualization_provider == "libvirt"
+  become: true
   block:
     - name: Install Libvirt packages
-      package:
-        name:
-          - virt-manager
-          - qemu-kvm
-          - libvirt-daemon-system
-          - libvirt-clients
-          - bridge-utils
+      ansible.builtin.package:
+        name: "{{ libvirt_packages }}"
         state: present
-    - name: Add user to libvirt/kvm groups
-      user:
+
+    - name: Add user to libvirt groups
+      ansible.builtin.user:
         name: "{{ workstation_user }}"
-        groups: "{{ 'libvirt,kvm' if ansible_os_family == 'Debian' else 'libvirt' }}"
+        groups: "{{ libvirt_groups }}"
         append: true
-    - name: Enable Libvirt Service
-      systemd:
+
+    - name: Enable Libvirt service
+      ansible.builtin.systemd:
         name: libvirtd
         enabled: true
         state: started
-  when: virtualization_provider == "libvirt"
-  become: true
 
-# 4. Virtualization Choice: VirtualBox (Oracle Repo)
-- name: Install VirtualBox Stack
-  block:
-    - name: Add VirtualBox GPG key (Debian)
-      apt_key:
-        url: "{{ vbox_gpg_key }}"
-        state: present
-      when: ansible_os_family == "Debian"
-
-    - name: Add VirtualBox Repository (Debian)
-      apt_repository:
-        repo: "{{ vbox_repo_url }}"
-        state: present
-      when: ansible_os_family == "Debian"
-
-    - name: Add VirtualBox Repository (Fedora)
-      get_url:
-        url: "{{ vbox_repo_url }}"
-        dest: /etc/yum.repos.d/virtualbox.repo
-      when: ansible_os_family == "RedHat"
-
-    - name: Install VirtualBox
-      package:
-        name: VirtualBox-7.0
-        state: present
-
-    - name: Download and Install VBox Extension Pack
-      shell: |
-        export VBOX_VER=$(vboxmanage -v | cut -dr -f1)
-        wget https://download.virtualbox.org/virtualbox/$VBOX_VER/Oracle_VM_VirtualBox_Extension_Pack-$VBOX_VER.vbox-extpack
-        yes | vboxmanage extpack install Oracle_VM_VirtualBox_Extension_Pack-$VBOX_VER.vbox-extpack
-      when: install_vbox_extpack
+# ------------------------------------------------------------------------------
+# 4. VirtualBox Setup
+# ------------------------------------------------------------------------------
+- name: Install VirtualBox
   when: virtualization_provider == "virtualbox"
   become: true
+  block:
+    # Debian: Add Oracle VirtualBox repo
+    - name: Setup VirtualBox repository (Debian)
+      when: ansible_facts['os_family'] == "Debian"
+      block:
+        - name: Download VirtualBox GPG key
+          ansible.builtin.get_url:
+            url: "{{ vbox_gpg_key }}"
+            dest: /usr/share/keyrings/virtualbox-archive-keyring.asc
+            mode: "0644"
+
+        - name: Convert VirtualBox GPG key
+          ansible.builtin.shell: |
+            gpg --dearmor < /usr/share/keyrings/virtualbox-archive-keyring.asc \
+              > /usr/share/keyrings/virtualbox-archive-keyring.gpg
+          args:
+            creates: /usr/share/keyrings/virtualbox-archive-keyring.gpg
+
+        - name: Set VirtualBox repo release name
+          ansible.builtin.set_fact:
+            vbox_release: "{{ vbox_fallback_release | default(ansible_facts['distribution_release']) }}"
+
+        - name: Add VirtualBox Repository
+          ansible.builtin.apt_repository:
+            repo: >-
+              deb [arch=amd64 signed-by=/usr/share/keyrings/virtualbox-archive-keyring.gpg]
+              {{ vbox_repo_url }} {{ vbox_release }} contrib
+            state: present
+            filename: virtualbox
+            update_cache: true
+
+    # Fedora: Add VirtualBox repo
+    - name: Setup VirtualBox repository (Fedora)
+      ansible.builtin.get_url:
+        url: "{{ vbox_repo_url_default }}"
+        dest: /etc/yum.repos.d/virtualbox.repo
+        mode: "0644"
+      when: ansible_facts['os_family'] == "RedHat"
+
+    - name: Install VirtualBox
+      ansible.builtin.package:
+        name: "{{ virtualbox_packages }}"
+        state: present
+
+    - name: Add user to vboxusers group
+      ansible.builtin.user:
+        name: "{{ workstation_user }}"
+        groups: vboxusers
+        append: true
+      failed_when: false
+
+    # Extension Pack (optional)
+    - name: Install VirtualBox Extension Pack
+      when: install_vbox_extpack
+      block:
+        - name: Get VirtualBox version
+          ansible.builtin.shell: vboxmanage -v | cut -dr -f1
+          register: vbox_version
+          changed_when: false
+
+        - name: Download Extension Pack
+          ansible.builtin.get_url:
+            url: "https://download.virtualbox.org/virtualbox/{{ vbox_version.stdout }}/Oracle_VM_VirtualBox_Extension_Pack-{{ vbox_version.stdout }}.vbox-extpack"
+            dest: "/tmp/Oracle_VM_VirtualBox_Extension_Pack-{{ vbox_version.stdout }}.vbox-extpack"
+            mode: "0644"
+
+        - name: Install Extension Pack
+          ansible.builtin.shell: |
+            echo "y" | vboxmanage extpack install --replace \
+              /tmp/Oracle_VM_VirtualBox_Extension_Pack-{{ vbox_version.stdout }}.vbox-extpack
+          args:
+            creates: /usr/lib/virtualbox/ExtensionPacks/Oracle_VM_VirtualBox_Extension_Pack

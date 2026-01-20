@@ -1,0 +1,61 @@
+# Molecule Dockerfile for Fedora
+# Supports Fedora 42, 43, and future versions
+FROM {{ item.image }}
+
+ENV container=docker
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+
+# Install systemd and essential packages
+RUN dnf -y update \
+    && dnf -y install \
+    systemd \
+    python3 \
+    python3-pip \
+    python3-libselinux \
+    sudo \
+    bash \
+    ca-certificates \
+    curl \
+    gnupg2 \
+    iproute \
+    passwd \
+    cracklib-dicts \
+    && dnf clean all
+
+# Remove unnecessary systemd services that cause issues in containers
+RUN (cd /lib/systemd/system/sysinit.target.wants/; for i in *; do [ $i == systemd-tmpfiles-setup.service ] || rm -f $i; done); \
+    rm -f /lib/systemd/system/multi-user.target.wants/*; \
+    rm -f /etc/systemd/system/*.wants/*; \
+    rm -f /lib/systemd/system/local-fs.target.wants/*; \
+    rm -f /lib/systemd/system/sockets.target.wants/*udev*; \
+    rm -f /lib/systemd/system/sockets.target.wants/*initctl*; \
+    rm -f /lib/systemd/system/basic.target.wants/*; \
+    rm -f /lib/systemd/system/anaconda.target.wants/*;
+
+# Fix PAM configuration for container environment
+# Disable pam_systemd.so and pam_loginuid.so which cause issues in containers
+RUN for f in /etc/pam.d/system-auth /etc/pam.d/password-auth /etc/pam.d/sudo /etc/pam.d/su /etc/pam.d/su-l; do \
+        if [ -f "$f" ]; then \
+            sed -i 's/^\(.*pam_systemd.so.*\)$/#\1/' "$f" 2>/dev/null || true; \
+            sed -i 's/^\(.*pam_loginuid.so.*\)$/#\1/' "$f" 2>/dev/null || true; \
+        fi; \
+    done
+
+# Disable requiretty and visiblepw in main sudoers if present
+RUN sed -i 's/^Defaults.*requiretty/# Defaults requiretty/' /etc/sudoers 2>/dev/null || true \
+    && sed -i 's/^Defaults.*!visiblepw/# Defaults !visiblepw/' /etc/sudoers 2>/dev/null || true
+
+# Create test user with password and passwordless sudo
+# Note: requiretty option not added as it's deprecated in newer sudo versions
+RUN useradd -m -s /bin/bash testuser \
+    && echo "testuser:testpass" | chpasswd \
+    && echo "testuser ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/testuser \
+    && chmod 0440 /etc/sudoers.d/testuser
+
+# Verify sudoers configuration is valid
+RUN visudo -cf /etc/sudoers \
+    && visudo -cf /etc/sudoers.d/testuser
+
+VOLUME ["/sys/fs/cgroup"]
+CMD ["/usr/sbin/init"]

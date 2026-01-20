@@ -1,0 +1,120 @@
+---
+#------------------------------------------------------------------------------
+# Molecule Verify Playbook
+#------------------------------------------------------------------------------
+# This playbook verifies that the role was applied correctly
+#------------------------------------------------------------------------------
+
+- name: Verify
+  hosts: all
+  gather_facts: true
+  become: true
+
+  vars:
+    workstation_user: "testuser"
+
+  tasks:
+    #--------------------------------------------------------------------------
+    # Verify System Packages
+    #--------------------------------------------------------------------------
+    - name: Verify curl is installed
+      ansible.builtin.command: which curl
+      register: curl_check
+      changed_when: false
+      failed_when: curl_check.rc != 0
+
+    - name: Verify git is installed
+      ansible.builtin.command: which git
+      register: git_check
+      changed_when: false
+      failed_when: git_check.rc != 0
+
+    - name: Verify jq is installed
+      ansible.builtin.command: which jq
+      register: jq_check
+      changed_when: false
+      failed_when: jq_check.rc != 0
+
+    - name: Verify tree is installed
+      ansible.builtin.command: which tree
+      register: tree_check
+      changed_when: false
+      failed_when: tree_check.rc != 0
+
+    #--------------------------------------------------------------------------
+    # Verify User Configuration
+    #--------------------------------------------------------------------------
+    - name: Verify testuser exists
+      ansible.builtin.getent:
+        database: passwd
+        key: "{{ workstation_user }}"
+      register: user_check
+
+    - name: Assert testuser exists
+      ansible.builtin.assert:
+        that:
+          - user_check is defined
+        fail_msg: "User {{ workstation_user }} does not exist"
+        success_msg: "User {{ workstation_user }} exists"
+
+    - name: Verify testuser shell is set correctly
+      ansible.builtin.command: getent passwd {{ workstation_user }}
+      register: user_shell
+      changed_when: false
+
+    - name: Assert user shell is bash
+      ansible.builtin.assert:
+        that:
+          - "'/bin/bash' in user_shell.stdout"
+        fail_msg: "User shell is not /bin/bash"
+        success_msg: "User shell is correctly set to /bin/bash"
+
+    #--------------------------------------------------------------------------
+    # Verify Shell Configuration
+    #--------------------------------------------------------------------------
+    - name: Check if .bashrc exists
+      ansible.builtin.stat:
+        path: "/home/{{ workstation_user }}/.bashrc"
+      register: bashrc_stat
+
+    - name: Verify custom shell content was added
+      ansible.builtin.command: grep -q "TEST_VAR" /home/{{ workstation_user }}/.bashrc
+      register: shell_content_check
+      changed_when: false
+      failed_when: false
+      when: bashrc_stat.stat.exists
+
+    #--------------------------------------------------------------------------
+    # Verify Directory Structure
+    #--------------------------------------------------------------------------
+    - name: Verify user home directory exists
+      ansible.builtin.stat:
+        path: "/home/{{ workstation_user }}"
+      register: home_dir
+
+    - name: Assert home directory exists
+      ansible.builtin.assert:
+        that:
+          - home_dir.stat.exists
+          - home_dir.stat.isdir
+        fail_msg: "Home directory does not exist"
+        success_msg: "Home directory exists"
+
+    #--------------------------------------------------------------------------
+    # Summary
+    #--------------------------------------------------------------------------
+    - name: Verification Summary
+      ansible.builtin.debug:
+        msg: |
+          ╔════════════════════════════════════════════════════════════════╗
+          ║  VERIFICATION PASSED                                           ║
+          ╠════════════════════════════════════════════════════════════════╣
+          ║  Distribution: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}
+          ║  OS Family: {{ ansible_facts['os_family'] }}
+          ║
+          ║  Verified:
+          ║    ✓ System packages installed (curl, git, jq, tree)
+          ║    ✓ User '{{ workstation_user }}' exists
+          ║    ✓ User shell configured
+          ║    ✓ Home directory exists
+          ╚════════════════════════════════════════════════════════════════╝

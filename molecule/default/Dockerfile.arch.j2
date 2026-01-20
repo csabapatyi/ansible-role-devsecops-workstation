@@ -1,0 +1,57 @@
+# Molecule Dockerfile for Arch Linux
+# Supports Arch Linux latest
+FROM {{ item.image }}
+
+ENV container=docker
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+
+# Update and install essential packages
+RUN pacman -Syu --noconfirm && \
+    pacman -S --noconfirm \
+    systemd \
+    python \
+    python-pip \
+    sudo \
+    bash \
+    ca-certificates \
+    curl \
+    gnupg \
+    iproute2 \
+    which \
+    && pacman -Scc --noconfirm
+
+# Remove unnecessary systemd services that cause issues in containers
+RUN (cd /lib/systemd/system/sysinit.target.wants/; for i in *; do [ $i == systemd-tmpfiles-setup.service ] || rm -f $i; done); \
+    rm -f /lib/systemd/system/multi-user.target.wants/*; \
+    rm -f /etc/systemd/system/*.wants/*; \
+    rm -f /lib/systemd/system/local-fs.target.wants/*; \
+    rm -f /lib/systemd/system/sockets.target.wants/*udev*; \
+    rm -f /lib/systemd/system/sockets.target.wants/*initctl*; \
+    rm -f /lib/systemd/system/basic.target.wants/*; \
+    rm -f /lib/systemd/system/anaconda.target.wants/* 2>/dev/null || true
+
+# Fix PAM configuration for container environment
+RUN for f in /etc/pam.d/system-auth /etc/pam.d/su /etc/pam.d/sudo; do \
+        if [ -f "$f" ]; then \
+            sed -i 's/^\(.*pam_systemd.so.*\)$/#\1/' "$f" 2>/dev/null || true; \
+            sed -i 's/^\(.*pam_loginuid.so.*\)$/#\1/' "$f" 2>/dev/null || true; \
+        fi; \
+    done
+
+# Disable requiretty in main sudoers if present (legacy setting)
+RUN sed -i 's/^Defaults.*requiretty/# Defaults requiretty/' /etc/sudoers 2>/dev/null || true
+
+# Create test user with password and passwordless sudo
+# Note: requiretty option removed as it's deprecated in newer sudo versions
+RUN useradd -m -s /bin/bash testuser \
+    && echo "testuser:testpass" | chpasswd \
+    && echo "testuser ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/testuser \
+    && chmod 0440 /etc/sudoers.d/testuser
+
+# Verify sudoers configuration is valid
+RUN visudo -cf /etc/sudoers \
+    && visudo -cf /etc/sudoers.d/testuser
+
+VOLUME ["/sys/fs/cgroup"]
+CMD ["/usr/sbin/init"]

@@ -1,69 +1,96 @@
 ---
-# 1. Flatpak Setup and Installation
-- name: Ensure flatpak is installed
-  package:
-    name: flatpak
-    state: present
-  become: true
+# Flatpak and Snap Installation
 
-- name: Add Flathub repository
-  flatpak_remote:
-    name: flathub
-    state: present
-    flatpakrepo_url: https://dl.flathub.org/repo/flathub.flatpakrepo
-  become: true
-
-- name: Install Flatpak packages
-  flatpak:
-    name: "{{ item }}"
-    state: present
-    remote: flathub
-  loop: "{{ flatpak_packages }}"
+# 1. Flatpak Setup
+- name: Setup Flatpak
   when: flatpak_packages | length > 0
   become: true
+  block:
+    - name: Ensure flatpak is installed
+      ansible.builtin.package:
+        name: flatpak
+        state: present
 
+    - name: Add Flathub repository (default)
+      community.general.flatpak_remote:
+        name: flathub
+        state: present
+        flatpakrepo_url: https://dl.flathub.org/repo/flathub.flatpakrepo
+
+    - name: Add custom Flatpak remotes
+      community.general.flatpak_remote:
+        name: "{{ item.name }}"
+        state: present
+        flatpakrepo_url: "{{ item.url }}"
+      loop: "{{ flatpak_remotes }}"
+      when: flatpak_remotes | length > 0
+
+    - name: Install Flatpak packages
+      community.general.flatpak:
+        name: "{{ item }}"
+        state: present
+        remote: flathub
+      loop: "{{ flatpak_packages }}"
+
+# 2. VS Code via Flatpak (if selected)
 - name: Install VS Code via Flatpak
-  flatpak:
+  community.general.flatpak:
     name: com.visualstudio.code
     state: present
     remote: flathub
   when: vscode_install_method == "flatpak"
   become: true
 
-# 2. Snap Setup and Installation
-- name: Ensure snapd is installed
-  package:
-    name: snapd
-    state: present
+# 3. Snap Setup
+- name: Setup Snapd
+  when: install_snapd or snap_packages | length > 0
   become: true
+  block:
+    - name: Ensure snapd is installed
+      ansible.builtin.package:
+        name: snapd
+        state: present
 
-- name: Enable and start snapd socket
-  systemd:
-    name: snapd.socket
-    enabled: yes
-    state: started
-  become: true
+    - name: Enable and start snapd socket
+      ansible.builtin.systemd:
+        name: snapd.socket
+        enabled: true
+        state: started
 
-- name: Create snap symbolic link (Required for classic snaps on some distros)
-  file:
-    src: /var/lib/snapd/snap
-    dest: /snap
-    state: link
-  become: true
-  when: ansible_os_family in ["RedHat", "Suse"]
+    - name: Create snap symbolic link (for classic snaps on non-Ubuntu)
+      ansible.builtin.file:
+        src: /var/lib/snapd/snap
+        dest: /snap
+        state: link
+      when: ansible_facts['os_family'] in ["RedHat", "Suse", "Archlinux"]
+      failed_when: false
 
-- name: Install Snap packages
-  snap:
+    - name: Wait for snapd to be ready
+      ansible.builtin.command: snap wait system seed.loaded
+      changed_when: false
+
+# 4. Install Snap packages
+- name: Install Snap packages (simple format)
+  community.general.snap:
     name: "{{ item }}"
     state: present
-  loop: "{{ snap_packages }}"
+  loop: "{{ snap_packages | selectattr('name', 'undefined') | list }}"
   when: snap_packages | length > 0
   become: true
 
-# 3. VS Code via Snap (Optional alternative)
+- name: Install Snap packages (dict format with classic)
+  community.general.snap:
+    name: "{{ item.name }}"
+    state: present
+    classic: "{{ item.classic | default(false) }}"
+  loop: "{{ snap_packages | selectattr('name', 'defined') | list }}"
+  when: snap_packages | length > 0
+  become: true
+
+# 5. VS Code via Snap (if selected)
 - name: Install VS Code via Snap
-  snap:
+  community.general.snap:
     name: code
-    classic: yes
+    classic: true
   when: vscode_install_method == "snap"
   become: true

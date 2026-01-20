@@ -1,44 +1,71 @@
 ---
-# 1. Check if cargo binary exists in the user's home (rustup standard)
+# Rust and Cargo Package Installation
+
+# 1. Check if Rust/Cargo is installed
 - name: Check for rustup cargo binary
-  stat:
+  ansible.builtin.stat:
     path: "/home/{{ workstation_user }}/.cargo/bin/cargo"
   register: cargo_bin
 
-# 2. Install Rust via rustup if the binary is missing
+# 2. Install Rust via rustup
 - name: Install Rust via rustup
+  when: not cargo_bin.stat.exists
+  become: true
+  become_user: "{{ workstation_user }}"
   block:
     - name: Download rustup installer
-      get_url:
+      ansible.builtin.get_url:
         url: https://sh.rustup.rs
         dest: /tmp/rustup.sh
-        mode: '0755'
+        mode: "0755"
 
     - name: Run rustup installer
-      shell: /tmp/rustup.sh -y
-      become: true
-      become_user: "{{ workstation_user }}"
-  when: not cargo_bin.stat.exists
+      ansible.builtin.command: /tmp/rustup.sh -y
+      args:
+        creates: "/home/{{ workstation_user }}/.cargo/bin/cargo"
 
-# 3. Install Cargo Packages
-# Instead of 'source', we provide the full path to the cargo binary
+# 3. Install Cargo packages
+- name: Check installed Cargo packages
+  ansible.builtin.shell: |
+    set -o pipefail
+    /home/{{ workstation_user }}/.cargo/bin/cargo install --list | \
+      grep -E '^[a-zA-Z]' | awk '{print $1}' | cut -d':' -f1
+  args:
+    executable: /bin/bash
+  register: installed_cargo_packages
+  changed_when: false
+  become: true
+  become_user: "{{ workstation_user }}"
+
 - name: Install Rust packages via Cargo
-  shell: "/home/{{ workstation_user }}/.cargo/bin/cargo install {{ item }}"
+  ansible.builtin.command: "/home/{{ workstation_user }}/.cargo/bin/cargo install {{ item }}"
   loop: "{{ rust_cargo_packages }}"
-  when: rust_cargo_packages | length > 0
+  when: item not in installed_cargo_packages.stdout_lines
   become: true
   become_user: "{{ workstation_user }}"
   register: cargo_install_result
-  changed_when: "'Installing' in cargo_install_result.stderr"
+  changed_when: "'Installing' in cargo_install_result.stderr or 'Compiling' in cargo_install_result.stderr"
   vars:
     ansible_command_timeout: 1200
 
-# 4. Ensure Cargo bin is in the user's PATH via .profile or .bashrc
+# 4. Ensure Cargo bin is in PATH
 - name: Ensure Cargo bin is in .profile
-  lineinfile:
+  ansible.builtin.lineinfile:
     path: "/home/{{ workstation_user }}/.profile"
     line: 'export PATH="$HOME/.cargo/bin:$PATH"'
     create: true
     state: present
+    mode: "0644"
+  become: true
+  become_user: "{{ workstation_user }}"
+
+- name: Ensure Cargo bin is in fish config
+  ansible.builtin.lineinfile:
+    path: "/home/{{ workstation_user }}/.config/fish/config.fish"
+    line: 'set -gx PATH $HOME/.cargo/bin $PATH'
+    create: true
+    state: present
+    mode: "0644"
+  when: "'fish' in workstation_user_shell"
   become: true
   become_user: "{{ workstation_user }}"

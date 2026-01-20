@@ -1,68 +1,59 @@
 ---
-# 1. Install Nerd Fonts from list of URLs
+# Ricing: Fonts, Dotfiles, and Customization
+
+# 1. Install Nerd Fonts
 - name: Install Nerd Fonts
+  when: nerd_font_urls | length > 0
+  become: true
+  become_user: "{{ workstation_user }}"
   block:
     - name: Ensure local fonts directory exists
-      file:
+      ansible.builtin.file:
         path: "/home/{{ workstation_user }}/.local/share/fonts"
         state: directory
         owner: "{{ workstation_user }}"
         group: "{{ workstation_user }}"
-        mode: '0755'
+        mode: "0755"
 
     - name: Download and unarchive Nerd Fonts
-      unarchive:
+      ansible.builtin.unarchive:
         src: "{{ item }}"
         dest: "/home/{{ workstation_user }}/.local/share/fonts"
         remote_src: true
       loop: "{{ nerd_font_urls }}"
-      when: nerd_font_urls | length > 0
+      register: fonts_installed
 
     - name: Update font cache
-      command: fc-cache -f
+      ansible.builtin.command: fc-cache -f
+      when: fonts_installed.changed
       changed_when: true
-  when: nerd_font_urls | length > 0
-  become: true
-  become_user: "{{ workstation_user }}"
 
-# 2. Dotfiles
+# 2. Clone Dotfiles Repository
 - name: Clone dotfiles repository
-  git:
-    repo: "{{ dotfiles_repo }}"
-    dest: "{{ dotfiles_dest | expanduser }}"
-    accept_hostkey: true
-  when: dotfiles_repo != ""
+  when: dotfiles_repo | length > 0
   become: true
   become_user: "{{ workstation_user }}"
+  block:
+    - name: Ensure dotfiles parent directory exists
+      ansible.builtin.file:
+        path: "{{ (dotfiles_dest | expanduser) | dirname }}"
+        state: directory
+        owner: "{{ workstation_user }}"
+        group: "{{ workstation_user }}"
+        mode: "0755"
 
-# 3. Inject Custom Shell Configuration Block
-# If you choose /usr/bin/fish, the RC file path is different. Conditional check needed to handle this.
-- name: Determine Shell RC path
-  set_fact:
-    shell_rc_path: >-
-      {% if 'fish' in workstation_user_shell -%}
-      /home/{{ workstation_user }}/.config/fish/config.fish
-      {%- else -%}
-      /home/{{ workstation_user }}/.{{ workstation_user_shell | basename }}rc
-      {%- endif %}
+    - name: Clone dotfiles
+      ansible.builtin.git:
+        repo: "{{ dotfiles_repo }}"
+        dest: "{{ dotfiles_dest | expanduser }}"
+        version: "{{ dotfiles_version | default('main') }}"
+        accept_hostkey: true
+        force: false
+      register: dotfiles_cloned
 
-- name: Ensure Fish config directory exists
-  file:
-    path: "/home/{{ workstation_user }}/.config/fish"
-    state: directory
-  when: "'fish' in workstation_user_shell"
-  become: true
-  become_user: "{{ workstation_user }}"
-
-- name: Inject custom content into shell RC
-  blockinfile:
-    path: "{{ shell_rc_path }}"
-    marker: "# {mark} ANSIBLE MANAGED BLOCK: Custom Shell Settings"
-    block: "{{ custom_shell_content }}"
-    create: true
-    owner: "{{ workstation_user }}"
-    group: "{{ workstation_user }}"
-    mode: '0644'
-  when: custom_shell_content | length > 0
-  become: true
-  become_user: "{{ workstation_user }}"
+    - name: Display dotfiles location
+      ansible.builtin.debug:
+        msg: |
+          Dotfiles cloned to: {{ dotfiles_dest | expanduser }}
+          You may need to run your dotfiles setup script manually.
+      when: dotfiles_cloned.changed

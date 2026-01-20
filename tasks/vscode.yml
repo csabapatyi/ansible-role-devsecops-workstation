@@ -1,35 +1,36 @@
 ---
-# 1. Determine the correct VS Code binary path
-- name: Set VS Code executable fact (Standard Repo/Snap)
-  set_fact:
+# VS Code Extension Installation
+
+# 1. Determine VS Code executable
+- name: Set VS Code executable (repo/snap)
+  ansible.builtin.set_fact:
     vscode_cli_executable: "code"
   when: vscode_install_method in ['repo', 'snap']
 
-- name: Set VS Code executable fact (Flatpak)
-  set_fact:
+- name: Set VS Code executable (flatpak)
+  ansible.builtin.set_fact:
     vscode_cli_executable: "flatpak run com.visualstudio.code"
-  when: vscode_install_method == 'flatpak'
+  when: vscode_install_method == "flatpak"
 
-# 2. Get list of already installed extensions
-# This prevents Ansible from attempting to reinstall every time (speeding up the run)
+# 2. Get installed extensions
 - name: Get list of installed VS Code extensions
-  shell: "{{ vscode_cli_executable }} --list-extensions"
+  ansible.builtin.command: "{{ vscode_cli_executable }} --list-extensions"
   register: installed_vscode_extensions
   changed_when: false
   failed_when: false
-  check_mode: no
   become: true
   become_user: "{{ workstation_user }}"
 
 # 3. Install missing extensions
 - name: Install VS Code extensions
-  shell: "{{ vscode_cli_executable }} --install-extension {{ item }}"
+  ansible.builtin.command: "{{ vscode_cli_executable }} --install-extension {{ item }} --force"
   loop: "{{ vscode_extensions }}"
-  when: 
+  when:
     - vscode_extensions | length > 0
-    - item.lower() not in installed_vscode_extensions.stdout_lines | map('lower') | list
+    - item | lower not in (installed_vscode_extensions.stdout_lines | default([]) | map('lower') | list)
   become: true
   become_user: "{{ workstation_user }}"
-  # Extension installation can be slow, we'll allow a longer timeout
+  register: extension_install
+  changed_when: "'was successfully installed' in extension_install.stdout | default('')"
   vars:
     ansible_command_timeout: 300

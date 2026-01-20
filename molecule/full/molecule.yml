@@ -1,0 +1,96 @@
+---
+#------------------------------------------------------------------------------
+# Molecule Full Test Scenario
+#------------------------------------------------------------------------------
+# This scenario runs more comprehensive tests including:
+# - Flatpak installation
+# - Rust/Cargo packages
+# - Shell configuration with Starship
+# - More system packages
+#------------------------------------------------------------------------------
+
+dependency:
+  name: galaxy
+  options:
+    requirements-file: requirements.yml
+    force: false
+
+driver:
+  name: docker
+
+platforms:
+  - name: ubuntu-full-test
+    image: ubuntu:24.04
+    dockerfile: ../default/Dockerfile.ubuntu.j2
+    pre_build_image: false
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    cgroupns_mode: host
+    command: /lib/systemd/systemd
+
+provisioner:
+  name: ansible
+  log: true
+  config_options:
+    defaults:
+      callbacks_enabled: profile_tasks
+      stdout_callback: yaml
+  playbooks:
+    converge: converge.yml
+    verify: verify.yml
+    prepare: ../default/prepare.yml
+  inventory:
+    group_vars:
+      all:
+        workstation_user: "testuser"
+        workstation_user_shell: "/bin/bash"
+
+        # Enable more features for full test
+        install_nvidia_drivers: false
+        container_engine: "none"
+        virtualization_provider: "none"
+
+        # Test more packages
+        system_packages:
+          - curl
+          - git
+          - jq
+          - tree
+          - htop
+          - tmux
+          - make
+
+        # Test flatpak
+        flatpak_packages:
+          - org.gnome.Calculator
+
+        # Test rust installation
+        rust_cargo_packages:
+          - bat
+
+        # Test starship
+        install_starship: true
+
+        # Test shell aliases
+        custom_shell_aliases:
+          - { alias: "ll", command: "ls -la" }
+          - { alias: "g", command: "git" }
+
+verifier:
+  name: ansible
+
+scenario:
+  name: full
+  test_sequence:
+    - dependency
+    - cleanup
+    - destroy
+    - syntax
+    - create
+    - prepare
+    - converge
+    - idempotence
+    - verify
+    - cleanup
+    - destroy

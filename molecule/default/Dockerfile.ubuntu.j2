@@ -1,0 +1,56 @@
+# Molecule Dockerfile for Ubuntu
+# Supports Ubuntu 24.04, 25.10, and future versions
+FROM {{ item.image }}
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV container=docker
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+
+# Install systemd and essential packages
+RUN apt-get update && apt-get install -y \
+    systemd \
+    systemd-sysv \
+    python3 \
+    python3-apt \
+    python3-pip \
+    sudo \
+    bash \
+    ca-certificates \
+    curl \
+    gnupg \
+    iproute2 \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# Remove unnecessary systemd services that cause issues in containers
+RUN rm -f /lib/systemd/system/multi-user.target.wants/* \
+    /etc/systemd/system/*.wants/* \
+    /lib/systemd/system/local-fs.target.wants/* \
+    /lib/systemd/system/sockets.target.wants/*udev* \
+    /lib/systemd/system/sockets.target.wants/*initctl* \
+    /lib/systemd/system/sysinit.target.wants/systemd-tmpfiles-setup* \
+    /lib/systemd/system/systemd-update-utmp* \
+    2>/dev/null || true
+
+# Fix PAM configuration for container environment
+RUN for f in /etc/pam.d/sudo /etc/pam.d/su /etc/pam.d/common-session; do \
+        if [ -f "$f" ]; then \
+            sed -i 's/^\(.*pam_systemd.so.*\)$/#\1/' "$f" 2>/dev/null || true; \
+            sed -i 's/^\(.*pam_loginuid.so.*\)$/#\1/' "$f" 2>/dev/null || true; \
+        fi; \
+    done
+
+# Create test user with passwordless sudo
+# Note: requiretty option removed as it's deprecated in newer sudo versions (Ubuntu 25.10+)
+RUN useradd -m -s /bin/bash testuser \
+    && echo "testuser:testpass" | chpasswd \
+    && echo "testuser ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/testuser \
+    && chmod 0440 /etc/sudoers.d/testuser
+
+# Verify sudoers configuration is valid
+RUN visudo -cf /etc/sudoers \
+    && visudo -cf /etc/sudoers.d/testuser
+
+VOLUME ["/sys/fs/cgroup"]
+CMD ["/lib/systemd/systemd"]

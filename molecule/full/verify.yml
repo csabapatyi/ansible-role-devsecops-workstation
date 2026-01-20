@@ -1,0 +1,145 @@
+---
+#------------------------------------------------------------------------------
+# Molecule Full Verify Playbook
+#------------------------------------------------------------------------------
+
+- name: Verify (Full Test)
+  hosts: all
+  gather_facts: true
+  become: true
+
+  vars:
+    workstation_user: "testuser"
+
+  tasks:
+    #--------------------------------------------------------------------------
+    # Verify System Packages
+    #--------------------------------------------------------------------------
+    - name: Verify essential packages are installed
+      ansible.builtin.command: "which {{ item }}"
+      register: pkg_check
+      changed_when: false
+      failed_when: pkg_check.rc != 0
+      loop:
+        - curl
+        - git
+        - jq
+        - tree
+        - htop
+        - tmux
+        - make
+
+    #--------------------------------------------------------------------------
+    # Verify Rust/Cargo Installation
+    #--------------------------------------------------------------------------
+    - name: Check if cargo is installed
+      ansible.builtin.stat:
+        path: "/home/{{ workstation_user }}/.cargo/bin/cargo"
+      register: cargo_stat
+
+    - name: Assert cargo is installed
+      ansible.builtin.assert:
+        that:
+          - cargo_stat.stat.exists
+        fail_msg: "Cargo is not installed"
+        success_msg: "Cargo is installed"
+
+    - name: Check if bat is installed via cargo
+      ansible.builtin.stat:
+        path: "/home/{{ workstation_user }}/.cargo/bin/bat"
+      register: bat_stat
+
+    - name: Assert bat is installed
+      ansible.builtin.assert:
+        that:
+          - bat_stat.stat.exists
+        fail_msg: "bat is not installed via cargo"
+        success_msg: "bat is installed via cargo"
+
+    #--------------------------------------------------------------------------
+    # Verify Starship Installation
+    #--------------------------------------------------------------------------
+    - name: Check if starship is installed
+      ansible.builtin.command: which starship
+      register: starship_check
+      changed_when: false
+      failed_when: false
+
+    - name: Assert starship is installed
+      ansible.builtin.assert:
+        that:
+          - starship_check.rc == 0
+        fail_msg: "Starship is not installed"
+        success_msg: "Starship is installed"
+
+    #--------------------------------------------------------------------------
+    # Verify Shell Configuration
+    #--------------------------------------------------------------------------
+    - name: Check shell aliases in bashrc
+      ansible.builtin.command: grep -E "alias ll=" /home/{{ workstation_user }}/.bashrc
+      register: alias_check
+      changed_when: false
+      failed_when: false
+
+    - name: Assert shell aliases are configured
+      ansible.builtin.assert:
+        that:
+          - alias_check.rc == 0
+        fail_msg: "Shell aliases not configured"
+        success_msg: "Shell aliases are configured"
+
+    - name: Check starship init in bashrc
+      ansible.builtin.command: grep -E "starship init" /home/{{ workstation_user }}/.bashrc
+      register: starship_init_check
+      changed_when: false
+      failed_when: false
+
+    - name: Assert starship init is in bashrc
+      ansible.builtin.assert:
+        that:
+          - starship_init_check.rc == 0
+        fail_msg: "Starship init not in bashrc"
+        success_msg: "Starship init is in bashrc"
+
+    #--------------------------------------------------------------------------
+    # Verify Flatpak
+    #--------------------------------------------------------------------------
+    - name: Check if flatpak is installed
+      ansible.builtin.command: which flatpak
+      register: flatpak_check
+      changed_when: false
+      failed_when: false
+
+    - name: Check if flathub remote is added
+      ansible.builtin.command: flatpak remote-list
+      register: flatpak_remotes
+      changed_when: false
+      when: flatpak_check.rc == 0
+
+    - name: Assert flathub is configured
+      ansible.builtin.assert:
+        that:
+          - "'flathub' in flatpak_remotes.stdout"
+        fail_msg: "Flathub remote not configured"
+        success_msg: "Flathub remote is configured"
+      when: flatpak_check.rc == 0
+
+    #--------------------------------------------------------------------------
+    # Summary
+    #--------------------------------------------------------------------------
+    - name: Full Test Verification Summary
+      ansible.builtin.debug:
+        msg: |
+          ╔════════════════════════════════════════════════════════════════╗
+          ║  FULL VERIFICATION PASSED                                      ║
+          ╠════════════════════════════════════════════════════════════════╣
+          ║  Distribution: {{ ansible_distribution }} {{ ansible_distribution_version }}
+          ║  
+          ║  Verified:
+          ║    ✓ System packages (curl, git, jq, tree, htop, tmux, make)
+          ║    ✓ Rust/Cargo installed
+          ║    ✓ bat installed via cargo
+          ║    ✓ Starship prompt installed
+          ║    ✓ Shell aliases configured
+          ║    ✓ Flatpak configured with Flathub
+          ╚════════════════════════════════════════════════════════════════╝

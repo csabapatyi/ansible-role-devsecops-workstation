@@ -1,0 +1,28 @@
+---
+# GitHub Repository Cloning
+
+# 1. Clone GitHub repositories to specified locations
+- name: Ensure parent directories exist for GitHub repos
+  ansible.builtin.file:
+    path: "{{ (item.dest | expanduser) | dirname }}"
+    state: directory
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0755"
+  loop: "{{ github_repos }}"
+  become: true
+  become_user: "{{ workstation_user }}"
+
+- name: Clone GitHub repositories
+  ansible.builtin.git:
+    repo: "{{ item.repo }}"
+    dest: "{{ item.dest | expanduser }}"
+    version: "{{ item.version | default('main') }}"
+    accept_hostkey: true
+    force: false
+    update: true
+  loop: "{{ github_repos }}"
+  become: true
+  become_user: "{{ workstation_user }}"
+  register: git_clone_result
+  failed_when: false

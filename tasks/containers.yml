@@ -1,66 +1,91 @@
 ---
-# 1. Logic for Docker installation
-- name: Install Docker Engine
-  package:
-    name:
-      - "{{ docker_package_name }}"
-      - "docker-ce-cli"
-      - "containerd.io"
-      - "docker-buildx-plugin"
-      - "docker-compose-plugin"
-    state: present
+# Container Engine Setup (Docker or Podman)
+
+# 1. Docker Installation
+- name: Install Docker
   when: container_engine == "docker"
   become: true
+  block:
+    - name: Install Docker packages (Debian)
+      ansible.builtin.apt:
+        name: "{{ docker_packages }}"
+        state: present
+        update_cache: true
+      when: ansible_facts['os_family'] == "Debian"
 
-- name: Ensure docker group exists
-  group:
-    name: docker
-    state: present
-  when: container_engine == "docker"
-  become: true
+    - name: Install Docker packages (Fedora)
+      ansible.builtin.dnf:
+        name: "{{ docker_packages }}"
+        state: present
+      when: ansible_facts['os_family'] == "RedHat"
 
-- name: Add user to docker group
-  user:
-    name: "{{ workstation_user }}"
-    groups: docker
-    append: yes
-  when: container_engine == "docker"
-  become: true
+    - name: Install Docker packages (openSUSE)
+      community.general.zypper:
+        name: "{{ docker_packages }}"
+        state: present
+      when: ansible_facts['os_family'] == "Suse"
 
-- name: Enable and start Docker service
-  systemd:
-    name: docker
-    enabled: yes
-    state: started
-  when: container_engine == "docker"
-  become: true
+    - name: Install Docker packages (Arch)
+      community.general.pacman:
+        name: "{{ docker_packages }}"
+        state: present
+      when: ansible_facts['os_family'] == "Archlinux"
 
-# 2. Logic for Podman installation
+    - name: Ensure docker group exists
+      ansible.builtin.group:
+        name: docker
+        state: present
+
+    - name: Add user to docker group
+      ansible.builtin.user:
+        name: "{{ workstation_user }}"
+        groups: docker
+        append: true
+
+    - name: Enable and start Docker service
+      ansible.builtin.systemd:
+        name: docker
+        enabled: true
+        state: started
+
+# 2. Podman Installation
 - name: Install Podman
-  package:
-    name: "{{ podman_package_name }}"
-    state: present
   when: container_engine == "podman"
   become: true
+  block:
+    - name: Install Podman
+      ansible.builtin.package:
+        name: "{{ podman_package_name }}"
+        state: present
 
-- name: Install Podman Compose (if Fedora/Suse)
-  package:
-    name: podman-compose
-    state: present
-  when:
-    - container_engine == "podman"
-    - ansible_os_family in ["RedHat", "Suse"]
-  become: true
+    - name: Install Podman Compose (Fedora/openSUSE)
+      ansible.builtin.package:
+        name: podman-compose
+        state: present
+      when: ansible_facts['os_family'] in ["RedHat", "Suse"]
+      failed_when: false
 
-# 3. Rootless Podman Configuration
-- name: Ensure subuid/subgid configured for rootless containers
-  lineinfile:
-    path: "{{ item }}"
-    line: "{{ workstation_user }}:100000:65536"
-    regexp: "^{{ workstation_user }}:"
-    state: present
-  loop:
-    - /etc/subuid
-    - /etc/subgid
-  when: container_engine == "podman"
-  become: true
+    - name: Install Podman Compose via pip (Debian/Arch)
+      ansible.builtin.pip:
+        name: podman-compose
+        state: present
+      when: ansible_facts['os_family'] in ["Debian", "Archlinux"]
+      failed_when: false
+
+    - name: Configure rootless Podman (subuid)
+      ansible.builtin.lineinfile:
+        path: /etc/subuid
+        line: "{{ workstation_user }}:100000:65536"
+        regexp: "^{{ workstation_user }}:"
+        state: present
+        create: true
+        mode: "0644"
+
+    - name: Configure rootless Podman (subgid)
+      ansible.builtin.lineinfile:
+        path: /etc/subgid
+        line: "{{ workstation_user }}:100000:65536"
+        regexp: "^{{ workstation_user }}:"
+        state: present
+        create: true
+        mode: "0644"

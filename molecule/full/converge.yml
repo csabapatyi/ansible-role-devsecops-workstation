@@ -1,0 +1,71 @@
+---
+#------------------------------------------------------------------------------
+# Molecule Full Converge Playbook
+#------------------------------------------------------------------------------
+
+- name: Converge (Full Test)
+  hosts: all
+  gather_facts: true
+  become: true
+
+  vars:
+    workstation_user: "testuser"
+    workstation_user_shell: "/bin/bash"
+
+    install_nvidia_drivers: false
+    container_engine: "none"
+    virtualization_provider: "none"
+    install_vagrant: false
+    install_terraform: false
+
+    system_packages:
+      - curl
+      - git
+      - jq
+      - tree
+      - htop
+      - tmux
+      - make
+
+    flatpak_packages:
+      - org.gnome.Calculator
+
+    install_snapd: false
+    snap_packages: []
+
+    install_aws_cli: false
+    install_azure_cli: false
+    install_gcp_cli: false
+    install_gitlab_cli: false
+    install_github_cli: false
+
+    vscode_install_method: "none"
+    vscode_extensions: []
+
+    rust_cargo_packages:
+      - bat
+
+    npm_packages: []
+    github_repos: []
+
+    install_starship: true
+    custom_shell_content: |
+      export EDITOR=vim
+      export VISUAL=vim
+
+    custom_shell_aliases:
+      - { alias: "ll", command: "ls -la" }
+      - { alias: "g", command: "git" }
+
+    nerd_font_urls: []
+    dotfiles_repo: ""
+    install_neovim: false
+
+  pre_tasks:
+    - name: Display test environment info
+      ansible.builtin.debug:
+        msg: |
+          Full Test on: {{ ansible_distribution }} {{ ansible_distribution_version }}
+
+  roles:
+    - role: csabapatyi.devsecops-workstation

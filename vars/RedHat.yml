@@ -1,20 +1,65 @@
 ---
+# ------------------------------------------------------------------------------
+# Fedora/RHEL/CentOS specific variables
+# ------------------------------------------------------------------------------
+pkg_manager: "dnf"
+pkg_install_cmd: "dnf install -y"
+pkg_update_cmd: "dnf makecache"
+
+# Package name mappings
 docker_package_name: "docker-ce"
-docker_repo_url: "https://download.docker.com/linux/fedora/docker-ce.repo"
-docker_gpg_key: "https://download.docker.com/linux/fedora/gpg"
-
 podman_package_name: "podman"
-
-hashicorp_repo_url: "https://rpm.releases.hashicorp.com/fedora/hashicorp.repo"
-# Fedora often includes VirtualBox in RPM Fusion, but we can add Oracle's repo:
-vbox_repo_url: "https://download.virtualbox.org/virtualbox/rpm/fedora/virtualbox.repo"
-
-nvidia_proprietary_packages:
-  - "akmod-nvidia"
-  - "xorg-x11-drv-nvidia-cuda"
-
-vscode_repo_url: "https://packages.microsoft.com/yumrepos/vscode"
-vscode_repo_key: "https://packages.microsoft.com/keys/microsoft.asc"
 vscode_package_name: "code"
+nodejs_package_name: "nodejs"
+npm_package_name: "npm"
 
+# Repository URLs
+docker_repo_url_default: "https://download.docker.com/linux/fedora/docker-ce.repo"
+docker_gpg_key_default: "https://download.docker.com/linux/fedora/gpg"
+
+hashicorp_repo_url_default: "https://rpm.releases.hashicorp.com/fedora/hashicorp.repo"
+
+vbox_repo_url_default: "https://download.virtualbox.org/virtualbox/rpm/fedora/virtualbox.repo"
+
+vscode_repo_url_default: "https://packages.microsoft.com/yumrepos/vscode"
+vscode_repo_key_default: "https://packages.microsoft.com/keys/microsoft.asc"
+
+# Nvidia packages for Fedora (requires RPM Fusion)
+# User should have RPM Fusion enabled or add it via custom_repositories
+nvidia_default_packages:
+  proprietary:
+    - akmod-nvidia
+    - xorg-x11-drv-nvidia-cuda
+    - nvidia-settings
+  open:
+    - akmod-nvidia-open
+    - xorg-x11-drv-nvidia-cuda
+    - nvidia-settings
+  nouveau:
+    - xorg-x11-drv-nouveau
+
+# Container packages
+docker_packages:
+  - docker-ce
+  - docker-ce-cli
+  - containerd.io
+  - docker-buildx-plugin
+  - docker-compose-plugin
+
+# Virtualization packages
+libvirt_packages:
+  - virt-manager
+  - qemu-kvm
+  - libvirt
+  - libvirt-daemon-kvm
+  - bridge-utils
+
+virtualbox_packages:
+  - VirtualBox-7.0
+
+# User groups
+docker_group: "docker"
+libvirt_groups: "libvirt"
+
+# Shell install command
 shell_install_cmd: "dnf install -y"

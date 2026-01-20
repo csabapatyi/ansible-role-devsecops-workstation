@@ -1,6 +1,26 @@
 # Ansible Role: DevSecOps Workstation
 
-A comprehensive and highly openioneted,  all-in-one, (wished to be) distribution-agnostic Ansible role designed for DevSecOps consultants to bootstrap a Linux workstation. Currently tested only on **Pop!_OS (Ubuntu)**. Future plans are **Fedora**, and **openSUSE Tumbleweed**.
+[![Lint](https://github.com/csabapatyi/devsecops-workstation/actions/workflows/ci.yml/badge.svg?branch=main&event=push)](https://github.com/csabapatyi/devsecops-workstation/actions/workflows/ci.yml)
+[![Ubuntu 24.04](https://img.shields.io/github/actions/workflow/status/csabapatyi/devsecops-workstation/ci.yml?branch=main&label=Ubuntu%2024.04&logo=ubuntu)](https://github.com/csabapatyi/devsecops-workstation/actions/workflows/ci.yml)
+[![Ubuntu 25.10](https://img.shields.io/github/actions/workflow/status/csabapatyi/devsecops-workstation/ci.yml?branch=main&label=Ubuntu%2025.10&logo=ubuntu)](https://github.com/csabapatyi/devsecops-workstation/actions/workflows/ci.yml)
+[![Fedora 42](https://img.shields.io/github/actions/workflow/status/csabapatyi/devsecops-workstation/ci.yml?branch=main&label=Fedora%2042&logo=fedora)](https://github.com/csabapatyi/devsecops-workstation/actions/workflows/ci.yml)
+[![Fedora 43](https://img.shields.io/github/actions/workflow/status/csabapatyi/devsecops-workstation/ci.yml?branch=main&label=Fedora%2043&logo=fedora)](https://github.com/csabapatyi/devsecops-workstation/actions/workflows/ci.yml)
+[![Arch Linux](https://img.shields.io/github/actions/workflow/status/csabapatyi/devsecops-workstation/ci.yml?branch=main&label=Arch%20Linux&logo=archlinux)](https://github.com/csabapatyi/devsecops-workstation/actions/workflows/ci.yml)
+[![openSUSE](https://img.shields.io/github/actions/workflow/status/csabapatyi/devsecops-workstation/ci.yml?branch=main&label=openSUSE%20Tumbleweed&logo=opensuse)](https://github.com/csabapatyi/devsecops-workstation/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+A comprehensive and highly opinionated, all-in-one, distribution-agnostic Ansible role designed for DevSecOps consultants to bootstrap a Linux workstation.
+
+## Tested Platforms
+
+| Platform | Version | Status |
+|----------|---------|--------|
+| Ubuntu | 24.04 LTS (Noble Numbat) | ✅ Supported |
+| Ubuntu | 25.10 (Questing Quokka) | ✅ Supported |
+| Fedora | 42 | ✅ Supported |
+| Fedora | 43 | ✅ Supported |
+| Arch Linux | Latest (Rolling) | ✅ Supported |
+| openSUSE | Tumbleweed (Rolling) | ✅ Supported |
 
 This role automates the installation of system packages, container engines (Docker/Podman), VS Code with extensions, Rust toolchains, Starship prompt, and Nvidia drivers.
 

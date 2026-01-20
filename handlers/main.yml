@@ -1,4 +1,28 @@
 ---
-- name: Reboot recommended
-  debug:
-    msg: "Nvidia drivers have been installed. A reboot is recommended to apply changes."
+# ------------------------------------------------------------------------------
+# Handlers
+# ------------------------------------------------------------------------------
+
+- name: Nvidia drivers installed
+  ansible.builtin.debug:
+    msg: NVIDIA DRIVERS INSTALLED - A system REBOOT is recommended to apply the changes.
+
+- name: Update pacman cache
+  community.general.pacman:
+    update_cache: true
+  become: true
+  when: ansible_facts['os_family'] == "Archlinux"
+
+- name: Restart Docker
+  ansible.builtin.systemd:
+    name: docker
+    state: restarted
+  become: true
+  when: container_engine == "docker"
+
+- name: Restart libvirtd
+  ansible.builtin.systemd:
+    name: libvirtd
+    state: restarted
+  become: true
+  when: virtualization_provider == "libvirt"

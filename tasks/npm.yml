@@ -1,0 +1,32 @@
+---
+# NPM Global Package Installation
+
+# 1. Ensure Node.js and npm are installed
+- name: Install Node.js and npm
+  ansible.builtin.package:
+    name:
+      - "{{ nodejs_package_name }}"
+      - "{{ npm_package_name }}"
+    state: present
+  become: true
+
+# 2. Check installed global npm packages
+- name: Get list of installed global npm packages
+  ansible.builtin.shell: |
+    set -o pipefail
+    npm list -g --depth=0 --json 2>/dev/null | jq -r '.dependencies | keys[]' 2>/dev/null || echo ""
+  args:
+    executable: /bin/bash
+  register: installed_npm_packages
+  changed_when: false
+  become: true
+
+# 3. Install global npm packages
+- name: Install global npm packages
+  community.general.npm:
+    name: "{{ item }}"
+    global: true
+    state: present
+  loop: "{{ npm_packages }}"
+  when: item not in installed_npm_packages.stdout_lines
+  become: true
