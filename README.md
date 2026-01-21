@@ -43,43 +43,86 @@ The following variables are defined in `defaults/main.yml`. You can override the
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `workstation_user` | `{{ ansible_user_id }}` | The system user to configure. |
-| `workstation_user_shell` | `/bin/bash` | Target shell (e.g., `/usr/bin/zsh`, `/usr/bin/fish`). |
-| `install_starship` | `true` | Installs the Starship shell prompt binary. |
+| `workstation_user_shell` | `/bin/bash` | Target shell (e.g., `/bin/zsh`, `/usr/bin/fish`). |
+| `install_starship` | `false` | Installs the Starship shell prompt binary. |
 | `load_custom_starship_config` | `false` | If true, deploys the included `starship.toml.j2` template. |
 | `starship_config_dir` | `~/.config` | Directory where `starship.toml` will be placed. |
+| `custom_shell_content` | `""` | Multi-line string with aliases, exports, etc. to append to shell RC file. |
+| `custom_shell_aliases` | `[]` | List of alias definitions (alternative to `custom_shell_content`). |
 
 ### Drivers
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `install_nvidia_drivers` | `false` | Whether to install Nvidia GPU drivers. |
-| `nvidia_driver_type` | `proprietary` | `proprietary` or `open`. |
+| `nvidia_driver_type` | `proprietary` | `proprietary`, `open`, or `nouveau`. |
+| `nvidia_packages` | `[]` | Override default Nvidia packages for your distro. |
 
 ### Virtualization & Containers
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `virtualization_provider` | `libvirt` | Choose libvirt (KVM/QEMU) or virtualbox. |
+| `virtualization_provider` | `none` | `libvirt` (KVM/QEMU), `virtualbox`, or `none`. |
 | `install_vagrant` | `false` | Install Vagrant from HashiCorp repo. |
 | `install_terraform` | `false` | Install Terraform from HashiCorp repo. |
-| `install_vbox_extpack` | `false` | Whether to install Oracle VBox Extension Pack. |
-| `container_engine` | `docker` | `docker` (official repo) or `podman`. |
+| `install_vbox_extpack` | `false` | Install Oracle VBox Extension Pack (requires `virtualbox`). |
+| `container_engine` | `none` | `docker` (official repo), `podman`, or `none`. |
+| `hashicorp_fallback_release` | `""` | Fallback release codename for HashiCorp repos. |
+| `vbox_fallback_release` | `""` | Fallback release codename for VirtualBox repos. |
 
-### Software & VS Code
+### Package Installation
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `vscode_install_method` | `repo` | `repo` (native), `flatpak`, or `snap`. |
-| `vscode_extensions` | `[]` | List of extension IDs (e.g., `redhat.ansible`). |
-| `system_packages` | `[]` | List of packages to install via system package manager. |
-| `flatpak_packages` | `[]` | List of Flatpak IDs from Flathub. |
-| `snap_packages` | `[]` | List of Snaps to install. |
-| `appimage_packages` | `[]` | List of AppImages (Name/URL) to download to `~/Applications`. |
-| `rust_cargo_packages` | `[]` | List of crates to install via `cargo install`. |
-| `url_packages` | `[]` | List of binaries to download directly from a URL. |
-| `direct_deb_urls` | `[]` | URLs of .deb packages to install (Debian/Ubuntu/Pop!_OS). |
-| `direct_rpm_urls` | `[]` | URLs of .rpm packages to install (Fedora). |
+| `system_packages` | `[]` | Packages to install via OS package manager (apt, dnf, pacman, zypper). |
+| `direct_deb_urls` | `[]` | URLs of .deb packages to install (Debian/Ubuntu). |
+| `direct_rpm_urls` | `[]` | URLs of .rpm packages to install (Fedora/RHEL). |
 | `direct_zypper_urls` | `[]` | URLs of .rpm packages to install (openSUSE). |
+| `direct_pacman_urls` | `[]` | URLs of .pkg.tar.zst packages to install (Arch). |
+
+### Repository Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `custom_repositories` | `[]` | Custom repos with GPG keys (supports apt, yum, zypper). |
+| `custom_ppas` | `[]` | Ubuntu/Pop!_OS PPAs to add (ignored on non-Debian). |
+
+### Flatpak & Snap
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `flatpak_remotes` | `[]` | Additional Flatpak remotes (Flathub added by default). |
+| `flatpak_packages` | `[]` | List of Flatpak application IDs from Flathub. |
+| `install_snapd` | `false` | Whether to install snapd. |
+| `snap_packages` | `[]` | List of Snaps to install. |
+
+### VS Code Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `vscode_install_method` | `none` | `repo` (native), `flatpak`, `snap`, or `none`. |
+| `vscode_extensions` | `[]` | List of extension IDs (e.g., `redhat.ansible`). |
+
+### Development Tools
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `rust_cargo_packages` | `[]` | List of crates to install via `cargo install`. |
+| `npm_packages` | `[]` | List of global NPM packages to install. |
+| `install_neovim` | `false` | Whether to install Neovim. |
+
+### Binary Downloads
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `url_packages` | `[]` | Binaries to download from URLs (supports archives). |
+| `appimage_packages` | `[]` | AppImages (Name/URL) to download to `~/Applications`. |
+
+### GitHub Repositories
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `github_repos` | `[]` | Git repositories to clone (repo, dest, version). |
 
 ### Cloud & DevSecOps CLIs
 
@@ -91,14 +134,14 @@ The following variables are defined in `defaults/main.yml`. You can override the
 | `install_gitlab_cli` | `false` | Installs `glab`. |
 | `install_github_cli` | `false` | Installs `gh`. |
 
-### Ricing & Personalization
+### Dotfiles & Fonts
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `nerd_font_urls` | `[...]` | List of ZIP URLs for Nerd Fonts to install to `~/.local/share/fonts`. |
 | `dotfiles_repo` | `""` | Git URL of your dotfiles repository. |
 | `dotfiles_dest` | `~/.dotfiles` | Path where dotfiles will be cloned. |
-| `custom_shell_content` | `""` | A multi-line string containing aliases, exports, and evals to be appended to your shell RC file. |
+| `dotfiles_version` | `main` | Branch, tag, or commit to checkout. |
+| `nerd_font_urls` | `[]` | List of ZIP URLs for Nerd Fonts to install. |
 
 ## Example Configuration (`extra-vars.yml`)
 
@@ -108,20 +151,32 @@ Save your configuration in a separate file to keep your workstation setup portab
 workstation_user: "your_username"
 workstation_user_shell: "/bin/bash"
 
+# Container & Virtualization
 container_engine: "docker"
-install_nvidia_drivers: true
-
 virtualization_provider: "libvirt"
 install_vagrant: true
 install_terraform: true
 
+# Drivers
+install_nvidia_drivers: true
+nvidia_driver_type: "proprietary"
+
+# Ubuntu/Pop!_OS specific PPAs
 custom_ppas:
   - "ppa:agornostal/ulauncher"
 
-# This will be used on your Pop!_OS machine
+# Custom repositories with GPG keys (cross-distro)
+custom_repositories:
+  - name: "google-chrome"
+    apt_repo: "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main"
+    yum_repo: "https://dl.google.com/linux/chrome/rpm/stable/x86_64"
+    gpg_key: "https://dl.google.com/linux/linux_signing_key.pub"
+
+# Direct package URLs (installed before repositories)
 direct_deb_urls:
   - "https://www.synaptics.com/sites/default/files/Ubuntu/pool/stable/main/all/synaptics-repository-keyring.deb"
 
+# System packages via OS package manager
 system_packages:
   - git
   - tmux
@@ -131,110 +186,115 @@ system_packages:
   - ca-certificates
   - golang
   - terraform
-  - dnsutils
   - nmap
   - stow
   - alacritty
   - python3-pip
-  - ulauncher               # This needs the PPAs: "ppa:agornostal/ulauncher"
-  - displaylink-driver      # This needs the direct_deb_url above from Synaptics
-  - vscode
+  - ulauncher               # Requires PPA above
+  - displaylink-driver      # Requires direct_deb_url above
   - virt-manager
   - qemu-utils
-  - qemu-system-x86
-  - qemu-system-common
-  - libvirt-daemon
-  - libvirt0
-  - vagrant
 
+# Flatpak applications
 flatpak_packages:
   # Browsers
-  - app.zen_browser.zen                 # Zen Browser
-  - com.brave.Browser                   # Brave Browser
-  - com.microsoft.Edge                  # Microsoft Edge
-
-  # Office and similar tools
-  - com.calibre_ebook.calibre           # eBook reader
+  - app.zen_browser.zen
+  - com.brave.Browser
+  - com.microsoft.Edge
 
   # Communications
-  - com.slack.Slack                     # https://flathub.org/apps/details/com.slack.Slack
+  - com.slack.Slack
 
-  # DevOps, Cloud and System Management
-  - io.github.mfat.sshpilot             # SSH session manager
-  - me.iepure.devtoolbox                # Various Dev Tools for example json to yaml converter
-  - io.github.tobagin.keysmith          # SSH key management GUI
-  - org.kde.krdc                        # RDP & VNC session manager
-  - dev.zed.Zed                         # Zed IDE
-  - app.devsuite.Ptyxis                 # Container focused terminal emulator
-  - com.raggesilver.BlackBox            # GTK4 Terminal
-  - dev.skynomads.Seabird               # Kubernetes Desktop GUI
+  # DevOps Tools
+  - dev.zed.Zed
+  - app.devsuite.Ptyxis
+  - dev.skynomads.Seabird
 
-  # Videos & Music player related
-  - com.spotify.Client                  # Spotify
-  - info.smplayer.SMPlayer              # SMPlayer
-  - org.videolan.VLC                    # VLC
-
-  # Backup & Sync Solutions
-  - me.kozec.syncthingtk                # GUI to configure sync jobs
-  - org.freefilesync.FreeFileSync       # GUI to configure sync jobs
+  # Media
+  - com.spotify.Client
+  - org.videolan.VLC
 
   # Utilities
-  - com.github.tchx84.Flatseal          # Flatpak permission manager
-  - com.bitwarden.desktop               # Bitwarden Desktop App (password manager)
-  - de.z_ray.OptimusUI                  # Nvidia card switcher
-  - io.github.cosmic_utils.Examine      # System Information Checker
-  - best.ellie.StartupConfiguration     # Autostart configuration
-  - org.gnome.baobab                    # Disk usage analyzer
-  - page.codeberg.JakobDev.jdSystemMonitor  # System Monitor
-  - io.github.vikdevelop.SaveDesktop    # Save Desktop settings
+  - com.github.tchx84.Flatseal
+  - com.bitwarden.desktop
 
-vscode_install_method: repo
-
+# VS Code
+vscode_install_method: "repo"
 vscode_extensions:
   - redhat.ansible
   - ms-azuretools.vscode-docker
   - rust-lang.rust-analyzer
 
+# Development tools
+install_neovim: true
+
 rust_cargo_packages:
   - bat
   - zoxide
-  - eza             # better ls
-  - topgrade        # all in one upgrade everything (apt, docker images, vscode extensions, pip packages, cargo packages, neovim plugins etc)
+  - eza
+  - topgrade
 
+npm_packages:
+  - typescript
+  - prettier
+
+# Binary downloads
 url_packages:
   - name: "kubectl"
     url: "https://dl.k8s.io/release/v1.28.0/bin/linux/amd64/kubectl"
     dest: "/usr/local/bin/kubectl"
+  - name: "helm"
+    url: "https://get.helm.sh/helm-v3.14.0-linux-amd64.tar.gz"
+    dest: "/usr/local/bin/helm"
+    extract: true
+    extract_path: "linux-amd64/helm"
 
-# Cloud & CLI Tools
+# Clone repositories
+github_repos:
+  - repo: "https://github.com/youruser/scripts.git"
+    dest: "~/Projects/scripts"
+    version: "main"
+
+# Cloud CLIs
 install_aws_cli: true
 install_azure_cli: true
 install_gcp_cli: true
 install_gitlab_cli: true
 install_github_cli: true
 
-# Ricing
-install_nerd_fonts: true
+# Dotfiles & Fonts
 dotfiles_repo: "https://github.com/youruser/dotfiles.git"
-custom_shell_content: |
-    # Custom Settings
+dotfiles_dest: "~/.dotfiles"
+dotfiles_version: "main"
 
-    ## Aliases
+nerd_font_urls:
+  - "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/JetBrainsMono.zip"
+  - "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/FiraCode.zip"
+
+# Shell configuration
+install_starship: true
+load_custom_starship_config: false
+
+custom_shell_content: |
+    # Aliases
     alias vim="nvim"
     alias vi="nvim"
     alias ll="eza -hla --group-directories-first"
     alias lls="eza -hla --group-directories-first --total-size"
-    alias untar="tar zxfv"
 
-    ### git aliases
+    # Git aliases
     alias gp="git pull"
     alias gcm="git commit -m"
     alias gca="git commit --amend"
-    alias gb="git rebase"
 
-    # export PATH and other global variables
-    export PATH="${HOME}/.cargo/bin:/opt/nvim-linux-x86_64/bin:${HOME}/.local/bin:${PATH}"
+    # Environment
+    export PATH="${HOME}/.cargo/bin:${HOME}/.local/bin:${PATH}"
     export EDITOR='nvim'
+
+# Alternative: use structured aliases
+custom_shell_aliases:
+  - { alias: "k", command: "kubectl" }
+  - { alias: "g", command: "git" }
 ```
 
 ## Usage
