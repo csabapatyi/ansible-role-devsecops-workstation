@@ -77,6 +77,14 @@ jobs:
         run: |
           ansible-galaxy collection install community.general ansible.posix community.docker
 
+      - name: Create role symlink for Ansible Galaxy name discovery
+        run: |
+          # Create symlink so Ansible can find the role by its Galaxy name
+          # The repo is 'ansible-role-devsecops-workstation' but Galaxy name is 'csabapatyi.devsecops-workstation'
+          cd ..
+          ln -s ansible-role-devsecops-workstation csabapatyi.devsecops-workstation
+          ls -la
+
       - name: Run Molecule tests
         run: |
           molecule test --scenario-name default --platform-name ubuntu-2404
@@ -107,6 +115,11 @@ jobs:
       - name: Install Ansible collections
         run: |
           ansible-galaxy collection install community.general ansible.posix community.docker
+
+      - name: Create role symlink for Ansible Galaxy name discovery
+        run: |
+          cd ..
+          ln -s ansible-role-devsecops-workstation csabapatyi.devsecops-workstation
 
       - name: Run Molecule tests
         run: |
@@ -139,6 +152,11 @@ jobs:
         run: |
           ansible-galaxy collection install community.general ansible.posix community.docker
 
+      - name: Create role symlink for Ansible Galaxy name discovery
+        run: |
+          cd ..
+          ln -s ansible-role-devsecops-workstation csabapatyi.devsecops-workstation
+
       - name: Run Molecule tests
         run: |
           molecule test --scenario-name default --platform-name fedora-42
@@ -169,6 +187,11 @@ jobs:
       - name: Install Ansible collections
         run: |
           ansible-galaxy collection install community.general ansible.posix community.docker
+
+      - name: Create role symlink for Ansible Galaxy name discovery
+        run: |
+          cd ..
+          ln -s ansible-role-devsecops-workstation csabapatyi.devsecops-workstation
 
       - name: Run Molecule tests
         run: |
@@ -201,6 +224,11 @@ jobs:
         run: |
           ansible-galaxy collection install community.general ansible.posix community.docker
 
+      - name: Create role symlink for Ansible Galaxy name discovery
+        run: |
+          cd ..
+          ln -s ansible-role-devsecops-workstation csabapatyi.devsecops-workstation
+
       - name: Run Molecule tests
         run: |
           molecule test --scenario-name default --platform-name archlinux
@@ -231,6 +259,11 @@ jobs:
       - name: Install Ansible collections
         run: |
           ansible-galaxy collection install community.general ansible.posix community.docker
+
+      - name: Create role symlink for Ansible Galaxy name discovery
+        run: |
+          cd ..
+          ln -s ansible-role-devsecops-workstation csabapatyi.devsecops-workstation
 
       - name: Run Molecule tests
         run: |

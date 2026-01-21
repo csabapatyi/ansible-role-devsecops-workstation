@@ -78,6 +78,7 @@
           Architecture: {{ ansible_facts['architecture'] }}
 
   roles:
-    # Molecule sets MOLECULE_PROJECT_DIRECTORY to the role root
-    # The roles_path in molecule.yml points to the parent directory
+    # Use Galaxy-style role name for consistent discovery
+    # In CI: symlink created from ansible-role-devsecops-workstation -> csabapatyi.devsecops-workstation
+    # Locally: role directory is already named csabapatyi.devsecops-workstation
     - role: csabapatyi.devsecops-workstation

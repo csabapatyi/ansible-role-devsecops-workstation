@@ -101,12 +101,16 @@ provisioner:
       callbacks_enabled: ansible.posix.profile_tasks
       stdout_callback: ansible.builtin.yaml
       result_format: yaml
-      roles_path: ${MOLECULE_PROJECT_DIRECTORY}/../:~/.ansible/roles:/usr/share/ansible/roles:/etc/ansible/roles
+      # Role discovery: look in parent directory where the role directory lives
+      # Locally: parent contains 'csabapatyi.devsecops-workstation'
+      # In CI: parent contains symlink 'csabapatyi.devsecops-workstation' -> 'ansible-role-devsecops-workstation'
+      roles_path: ${MOLECULE_PROJECT_DIRECTORY}/..:~/.ansible/roles:/usr/share/ansible/roles:/etc/ansible/roles
       deprecation_warnings: false
     ssh_connection:
       pipelining: true
   playbooks:
     converge: converge.yml
+    prepare: prepare.yml
     verify: verify.yml
   inventory:
     group_vars:
