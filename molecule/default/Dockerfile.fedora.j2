@@ -21,6 +21,7 @@ RUN dnf -y update \
     iproute \
     passwd \
     cracklib-dicts \
+    which \
     && dnf clean all
 
 # Remove unnecessary systemd services that cause issues in containers

@@ -28,8 +28,8 @@
       when: ansible_facts['os_family'] == "Archlinux"
 
     - name: Update package cache (openSUSE)
-      community.general.zypper:
-        update_cache: true
+      ansible.builtin.command: zypper --non-interactive refresh
+      changed_when: false
       when: ansible_facts['os_family'] == "Suse"
 
     - name: Ensure test user exists
@@ -41,7 +41,7 @@
 
     - name: Ensure test user has sudo access
       ansible.builtin.copy:
-        content: "testuser ALL=(ALL) NOPASSWD:ALL"
+        content: "testuser ALL=(ALL) NOPASSWD:ALL\n"
         dest: /etc/sudoers.d/testuser
         mode: "0440"
         validate: "visudo -cf %s"

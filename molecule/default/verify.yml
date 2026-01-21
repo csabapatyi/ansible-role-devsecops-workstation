@@ -18,25 +18,25 @@
     # Verify System Packages
     #--------------------------------------------------------------------------
     - name: Verify curl is installed
-      ansible.builtin.command: which curl
+      ansible.builtin.shell: command -v curl
       register: curl_check
       changed_when: false
       failed_when: curl_check.rc != 0
 
     - name: Verify git is installed
-      ansible.builtin.command: which git
+      ansible.builtin.shell: command -v git
       register: git_check
       changed_when: false
       failed_when: git_check.rc != 0
 
     - name: Verify jq is installed
-      ansible.builtin.command: which jq
+      ansible.builtin.shell: command -v jq
       register: jq_check
       changed_when: false
       failed_when: jq_check.rc != 0
 
     - name: Verify tree is installed
-      ansible.builtin.command: which tree
+      ansible.builtin.shell: command -v tree
       register: tree_check
       changed_when: false
       failed_when: tree_check.rc != 0

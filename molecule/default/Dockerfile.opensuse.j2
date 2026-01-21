@@ -42,6 +42,16 @@ RUN for f in /etc/pam.d/common-session /etc/pam.d/su /etc/pam.d/sudo /etc/pam.d/
         fi; \
     done
 
+# Create /etc/sudoers if it doesn't exist (openSUSE Tumbleweed minimal may not have it)
+# Also ensure sudoers.d directory exists
+RUN if [ ! -f /etc/sudoers ]; then \
+        echo "# Sudoers file created for container testing" > /etc/sudoers && \
+        echo "root ALL=(ALL) ALL" >> /etc/sudoers && \
+        echo "@includedir /etc/sudoers.d" >> /etc/sudoers && \
+        chmod 0440 /etc/sudoers; \
+    fi && \
+    mkdir -p /etc/sudoers.d
+
 # Disable requiretty and visiblepw in main sudoers if present
 RUN sed -i 's/^Defaults.*requiretty/# Defaults requiretty/' /etc/sudoers 2>/dev/null || true \
     && sed -i 's/^Defaults.*!visiblepw/# Defaults !visiblepw/' /etc/sudoers 2>/dev/null || true
