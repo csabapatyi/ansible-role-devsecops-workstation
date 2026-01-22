@@ -159,6 +159,9 @@ custom_shell_aliases: []
 # Rust / Cargo Packages
 # ------------------------------------------------------------------------------
 rust_cargo_packages: []
+
+# Build dependencies for compiling Rust crates (OS-specific defaults in vars/*.yml)
+rust_build_dependencies: []
 # Example:
 #   - bat
 #   - eza

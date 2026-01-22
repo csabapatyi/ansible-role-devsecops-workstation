@@ -66,3 +66,8 @@ libvirt_groups: "libvirt,kvm"
 
 # Shell install command
 shell_install_cmd: "apt-get install -y"
+
+# Rust/Cargo build dependencies
+rust_build_dependencies:
+  - libssl-dev
+  - pkg-config

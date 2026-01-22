@@ -1,6 +1,14 @@
 ---
 # Rust and Cargo Package Installation
 
+# 0. Install build dependencies for compiling Rust crates
+- name: Install Rust build dependencies
+  ansible.builtin.package:
+    name: "{{ rust_build_dependencies }}"
+    state: present
+  become: true
+  when: rust_cargo_packages | length > 0
+
 # 1. Check if Rust/Cargo is installed
 - name: Check for rustup cargo binary
   ansible.builtin.stat:
@@ -29,7 +37,7 @@
   ansible.builtin.shell: |
     set -o pipefail
     /home/{{ workstation_user }}/.cargo/bin/cargo install --list | \
-      grep -E '^[a-zA-Z]' | awk '{print $1}' | cut -d':' -f1
+      grep -E '^[a-zA-Z]' | awk '{print $1}' | cut -d':' -f1 || true
   args:
     executable: /bin/bash
   register: installed_cargo_packages
@@ -62,7 +70,7 @@
 - name: Ensure Cargo bin is in fish config
   ansible.builtin.lineinfile:
     path: "/home/{{ workstation_user }}/.config/fish/config.fish"
-    line: 'set -gx PATH $HOME/.cargo/bin $PATH'
+    line: "set -gx PATH $HOME/.cargo/bin $PATH"
     create: true
     state: present
     mode: "0644"

@@ -6,6 +6,13 @@ pkg_manager: "dnf"
 pkg_install_cmd: "dnf install -y"
 pkg_update_cmd: "dnf makecache"
 
+# Build dependencies for compiling Rust crates
+rust_build_dependencies:
+  - openssl-devel
+  - pkg-config
+  - perl-FindBin
+  - perl-File-Compare
+
 # Package name mappings
 docker_package_name: "docker-ce"
 podman_package_name: "podman"

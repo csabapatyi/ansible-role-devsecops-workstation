@@ -3,6 +3,11 @@
 # Arch Linux specific variables
 # ------------------------------------------------------------------------------
 pkg_manager: "pacman"
+
+# Build dependencies for compiling Rust crates
+rust_build_dependencies:
+  - openssl
+  - pkg-config
 pkg_install_cmd: "pacman -S --noconfirm --needed"
 pkg_update_cmd: "pacman -Sy"
 

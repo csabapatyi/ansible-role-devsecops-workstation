@@ -6,6 +6,11 @@ pkg_manager: "zypper"
 pkg_install_cmd: "zypper install -y"
 pkg_update_cmd: "zypper refresh"
 
+# Build dependencies for compiling Rust crates
+rust_build_dependencies:
+  - libopenssl-devel
+  - pkg-config
+
 # Package name mappings
 docker_package_name: "docker"
 podman_package_name: "podman"
@@ -15,7 +20,7 @@ npm_package_name: "npm"
 
 # Repository URLs
 docker_repo_url_default: "https://download.opensuse.org/repositories/Virtualization:containers/openSUSE_Tumbleweed/"
-docker_gpg_key_default: ""  # Usually bundled in repo file for Suse
+docker_gpg_key_default: "" # Usually bundled in repo file for Suse
 
 vbox_repo_url_default: "https://download.virtualbox.org/virtualbox/rpm/opensuse/"
 
