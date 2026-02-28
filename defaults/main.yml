@@ -234,3 +234,102 @@ nerd_font_urls: []
 # Misc
 # ------------------------------------------------------------------------------
 install_neovim: false
+
+# ------------------------------------------------------------------------------
+# Btrfs Configuration
+# ------------------------------------------------------------------------------
+# Enable btrfs subvolume management
+btrfs_manage_subvolumes: false
+
+# Btrfs device/mount point for subvolume operations
+# This is the device containing your btrfs filesystem
+btrfs_device: "/dev/sda2"
+
+# Mount point for btrfs root (used temporarily during subvolume creation)
+btrfs_mount_point: "/mnt/btrfs-root"
+
+# Subvolume configuration
+# Each subvolume can have the following properties:
+#   - name: Subvolume name (required)
+#   - path: Mount path for the subvolume (required)
+#   - mount_options: Mount options (optional, uses btrfs_default_mount_options if not specified)
+#   - create: Whether to create if missing (optional, default: true)
+#   - snapshot: Whether to include in snapshots (optional, default: true)
+btrfs_subvolumes: []
+# Example best-practice layout:
+#   - name: "@"
+#     path: "/"
+#     mount_options: "defaults,noatime,compress=zstd:1,space_cache=v2,discard=async"
+#   - name: "@home"
+#     path: "/home"
+#   - name: "@snapshots"
+#     path: "/.snapshots"
+#   - name: "@var_log"
+#     path: "/var/log"
+#     snapshot: false
+#   - name: "@var_cache"
+#     path: "/var/cache"
+#     snapshot: false
+#   - name: "@var_tmp"
+#     path: "/var/tmp"
+#     snapshot: false
+
+# Default mount options for btrfs subvolumes
+btrfs_default_mount_options: "defaults,noatime,compress=zstd:1,space_cache=v2"
+
+# SSD-specific options (appended when btrfs_is_ssd is true)
+btrfs_is_ssd: false
+btrfs_ssd_options: "discard=async,ssd"
+
+# ------------------------------------------------------------------------------
+# Btrfs APT Snapshot Configuration (Debian-based only)
+# ------------------------------------------------------------------------------
+# Enable automatic btrfs snapshots before apt operations
+# This mimics openSUSE's snapper behavior for apt/aptitude
+btrfs_apt_snapshots_enable: false
+
+# Snapshot subvolume name (must exist or be in btrfs_subvolumes)
+btrfs_apt_snapshots_subvolume: "@"
+
+# Where to store apt snapshots
+btrfs_apt_snapshots_dir: "/.snapshots"
+
+# Snapshot naming prefix
+btrfs_apt_snapshots_prefix: "apt-snapshot"
+
+# Maximum number of apt snapshots to keep (0 = unlimited)
+btrfs_apt_snapshots_keep: 10
+
+# Create post-transaction snapshot as well (for comparison)
+btrfs_apt_snapshots_post: true
+
+# Snapshot description format (supports: {date}, {time}, {action})
+btrfs_apt_snapshots_description: "APT {action} on {date} at {time}"
+
+# ------------------------------------------------------------------------------
+# Snapper Configuration (optional, for more advanced snapshot management)
+# ------------------------------------------------------------------------------
+# Install and configure snapper for automated snapshots
+btrfs_install_snapper: false
+
+# Snapper configurations to create
+btrfs_snapper_configs: []
+# Example:
+#   - name: "root"
+#     subvolume: "/"
+#     timeline_create: true
+#     timeline_cleanup: true
+#     timeline_limit_hourly: 5
+#     timeline_limit_daily: 7
+#     timeline_limit_weekly: 4
+#     timeline_limit_monthly: 6
+#     timeline_limit_yearly: 2
+#   - name: "home"
+#     subvolume: "/home"
+#     timeline_create: true
+#     timeline_cleanup: true
+#     timeline_limit_hourly: 5
+#     timeline_limit_daily: 7
+#     timeline_limit_weekly: 0
+#     timeline_limit_monthly: 0
+#     timeline_limit_yearly: 0

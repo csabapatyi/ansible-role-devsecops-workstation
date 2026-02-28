@@ -26,13 +26,14 @@ This role automates the installation of system packages, container engines (Dock
 
 ## Features
 
-- **Multi-Distro Support**: Works across APT, DNF, and Zypper.
+- **Multi-Distro Support**: Works across APT, DNF, Pacman, and Zypper.
 - **Flexible Repositories**: Add any third-party GPG keys and repositories via variables.
 - **Universal Apps**: Support for Flatpak, Snap, and AppImages.
 - **Container Choice**: Toggle between official Docker CE or native Podman (with rootless config).
 - **VS Code Mastery**: Install via Repo or Flatpak and manage extensions automatically.
 - **Dev Tooling**: Integrated support for Cargo (Rust) packages and direct binary URL downloads.
 - **Hardware Ready**: Optional Nvidia proprietary or open-source driver installation.
+- **Btrfs Integration**: Manage subvolumes, enable automatic apt snapshots, and configure snapper for timeline-based backups (similar to openSUSE).
 
 ## Role Variables
 
@@ -142,6 +143,41 @@ The following variables are defined in `defaults/main.yml`. You can override the
 | `dotfiles_dest` | `~/.dotfiles` | Path where dotfiles will be cloned. |
 | `dotfiles_version` | `main` | Branch, tag, or commit to checkout. |
 | `nerd_font_urls` | `[]` | List of ZIP URLs for Nerd Fonts to install. |
+
+### Btrfs Configuration
+
+Manage btrfs subvolumes and enable automatic snapshots before/after apt operations (similar to openSUSE's snapper integration with zypper).
+
+#### Subvolume Management
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `btrfs_manage_subvolumes` | `false` | Enable btrfs subvolume management. |
+| `btrfs_device` | `/dev/sda2` | Btrfs device/partition for subvolume operations. |
+| `btrfs_mount_point` | `/mnt/btrfs-root` | Temporary mount point for subvolume creation. |
+| `btrfs_subvolumes` | `[]` | List of subvolumes to create/manage. |
+| `btrfs_default_mount_options` | `defaults,noatime,compress=zstd:1,space_cache=v2` | Default mount options for subvolumes. |
+| `btrfs_is_ssd` | `false` | Enable SSD-specific mount options. |
+| `btrfs_ssd_options` | `discard=async,ssd` | SSD mount options (appended when `btrfs_is_ssd` is true). |
+
+#### APT Btrfs Snapshots (Debian-based only)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `btrfs_apt_snapshots_enable` | `false` | Enable automatic snapshots before/after apt operations. |
+| `btrfs_apt_snapshots_subvolume` | `@` | Subvolume to snapshot. |
+| `btrfs_apt_snapshots_dir` | `/.snapshots` | Directory to store apt snapshots. |
+| `btrfs_apt_snapshots_prefix` | `apt-snapshot` | Snapshot naming prefix. |
+| `btrfs_apt_snapshots_keep` | `10` | Maximum snapshots to retain (0 = unlimited). |
+| `btrfs_apt_snapshots_post` | `true` | Create post-transaction snapshot for comparison. |
+| `btrfs_apt_snapshots_description` | `APT {action} on {date} at {time}` | Snapshot description format. |
+
+#### Snapper Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `btrfs_install_snapper` | `false` | Install and configure snapper for timeline-based snapshots. |
+| `btrfs_snapper_configs` | `[]` | List of snapper configurations to create. |
 
 ## Example Configuration (`extra-vars.yml`)
 
@@ -274,6 +310,44 @@ nerd_font_urls:
 # Shell configuration
 install_starship: true
 load_custom_starship_config: false
+
+# Btrfs Configuration (for btrfs root filesystems)
+btrfs_manage_subvolumes: false
+btrfs_device: "/dev/vda2"
+btrfs_is_ssd: true
+
+# Best practice subvolume layout
+btrfs_subvolumes:
+  - name: "@"
+    path: "/"
+  - name: "@home"
+    path: "/home"
+  - name: "@snapshots"
+    path: "/.snapshots"
+  - name: "@var_log"
+    path: "/var/log"
+    snapshot: false
+  - name: "@var_cache"
+    path: "/var/cache"
+    snapshot: false
+
+# APT automatic snapshots (like openSUSE's zypper integration)
+btrfs_apt_snapshots_enable: true
+btrfs_apt_snapshots_keep: 10
+btrfs_apt_snapshots_post: true
+
+# Snapper for timeline-based snapshots
+btrfs_install_snapper: true
+btrfs_snapper_configs:
+  - name: "root"
+    subvolume: "/"
+    timeline_create: true
+    timeline_cleanup: true
+    timeline_limit_hourly: 5
+    timeline_limit_daily: 7
+    timeline_limit_weekly: 4
+    timeline_limit_monthly: 6
+    timeline_limit_yearly: 2
 
 custom_shell_content: |
     # Aliases

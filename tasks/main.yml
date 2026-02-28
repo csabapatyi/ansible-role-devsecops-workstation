@@ -18,70 +18,76 @@
         Architecture: {{ ansible_facts['architecture'] }}
         User: {{ workstation_user }}
 
-# 3. Configure repositories (must come before package installation)
+# 3. Configure btrfs subvolumes and snapshots
+- name: Configure Btrfs Subvolumes and Snapshots
+  ansible.builtin.include_tasks: btrfs.yml
+  when: btrfs_manage_subvolumes or btrfs_apt_snapshots_enable or btrfs_install_snapper
+  tags: [btrfs, snapshots, filesystem]
+
+# 4. Configure repositories (must come before package installation)
 - name: Configure Repositories
   ansible.builtin.include_tasks: repositories.yml
   tags: [repositories]
 
-# 4. Install system packages
+# 5. Install system packages
 - name: Install System and URL Packages
   ansible.builtin.include_tasks: packages.yml
   tags: [packages]
 
-# 5. Setup container engine
+# 6. Setup container engine
 - name: Setup Container Engine
   ansible.builtin.include_tasks: containers.yml
   when: container_engine != "none"
   tags: [containers, docker, podman]
 
-# 6. Setup virtualization
+# 7. Setup virtualization
 - name: Setup Virtualization and Infra Tools
   ansible.builtin.include_tasks: virtualization.yml
   when: virtualization_provider != "none" or install_vagrant or install_terraform
   tags: [virtualization, vagrant, terraform]
 
-# 7. Install Flatpaks and Snaps
+# 8. Install Flatpaks and Snaps
 - name: Install Flatpaks and Snaps
   ansible.builtin.include_tasks: flatpak_snap.yml
   when: flatpak_packages | length > 0 or snap_packages | length > 0 or install_snapd
   tags: [flatpak, snap]
 
-# 8. Configure VS Code
+# 9. Configure VS Code
 - name: Configure VS Code
   ansible.builtin.include_tasks: vscode.yml
   when: vscode_install_method != "none"
   tags: [vscode]
 
-# 9. Setup shell and prompt
+# 10. Setup shell and prompt
 - name: Setup Shell and Starship
   ansible.builtin.include_tasks: shell.yml
   tags: [shell, starship]
 
-# 10. Install Rust and Cargo packages
+# 11. Install Rust and Cargo packages
 - name: Install Rust Tools
   ansible.builtin.include_tasks: rust.yml
   when: rust_cargo_packages | length > 0
   tags: [rust, cargo]
 
-# 11. Install NPM packages
+# 12. Install NPM packages
 - name: Install NPM Packages
   ansible.builtin.include_tasks: npm.yml
   when: npm_packages | length > 0
   tags: [npm, nodejs]
 
-# 12. Clone GitHub repositories
+# 13. Clone GitHub repositories
 - name: Clone GitHub Repositories
   ansible.builtin.include_tasks: github_repos.yml
   when: github_repos | length > 0
   tags: [github, repos]
 
-# 13. Install Nvidia drivers
+# 14. Install Nvidia drivers
 - name: Install Nvidia Drivers
   ansible.builtin.include_tasks: nvidia.yml
   when: install_nvidia_drivers
   tags: [nvidia]
 
-# 14. Ricing (fonts, dotfiles, etc.)
+# 15. Ricing (fonts, dotfiles, etc.)
 - name: Apply Ricing (Fonts, Dotfiles)
   ansible.builtin.include_tasks: ricing.yml
   tags: [ricing, fonts, dotfiles]
