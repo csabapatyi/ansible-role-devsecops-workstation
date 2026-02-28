@@ -1,0 +1,226 @@
+#!/bin/bash
+# ------------------------------------------------------------------------------
+# APT Btrfs Snapshot Script
+# Automatically creates btrfs snapshots before/after APT operations
+# Similar to openSUSE's snapper integration with zypper
+#
+# Managed by Ansible - Do not edit manually
+# ------------------------------------------------------------------------------
+
+set -euo pipefail
+
+# Configuration
+SNAPSHOTS_DIR="{{ btrfs_apt_snapshots_dir }}"
+SNAPSHOT_SUBVOL="{{ btrfs_apt_snapshots_subvolume }}"
+BTRFS_DEVICE="{{ btrfs_device }}"
+SNAPSHOT_PREFIX="{{ btrfs_apt_snapshots_prefix }}"
+MAX_SNAPSHOTS="{{ btrfs_apt_snapshots_keep }}"
+DESCRIPTION_FORMAT="{{ btrfs_apt_snapshots_description }}"
+
+# Logging
+LOG_FILE="/var/log/apt-btrfs-snapshot.log"
+
+log() {
+    local level="$1"
+    shift
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [$level] $*" | tee -a "$LOG_FILE"
+}
+
+# Get current date/time for snapshot naming
+get_timestamp() {
+    date '+%Y%m%d_%H%M%S'
+}
+
+get_date() {
+    date '+%Y-%m-%d'
+}
+
+get_time() {
+    date '+%H:%M:%S'
+}
+
+# Create a snapshot
+create_snapshot() {
+    local action="$1"
+    local timestamp
+    local snapshot_name
+    local snapshot_path
+    local description
+
+    timestamp=$(get_timestamp)
+    snapshot_name="${SNAPSHOT_PREFIX}_${action}_${timestamp}"
+    snapshot_path="${SNAPSHOTS_DIR}/${snapshot_name}"
+
+    # Build description
+    description="${DESCRIPTION_FORMAT}"
+    description="${description//\{date\}/$(get_date)}"
+    description="${description//\{time\}/$(get_time)}"
+    description="${description//\{action\}/${action}}"
+
+    # Ensure snapshots directory exists
+    if [[ ! -d "$SNAPSHOTS_DIR" ]]; then
+        log "INFO" "Creating snapshots directory: $SNAPSHOTS_DIR"
+        mkdir -p "$SNAPSHOTS_DIR"
+    fi
+
+    # Check if root is btrfs
+    if ! findmnt -n -o FSTYPE / | grep -q btrfs; then
+        log "WARN" "Root filesystem is not btrfs, skipping snapshot"
+        return 0
+    fi
+
+    # Create the snapshot
+    log "INFO" "Creating ${action} snapshot: ${snapshot_name}"
+    if btrfs subvolume snapshot -r / "${snapshot_path}" > /dev/null 2>&1; then
+        log "INFO" "Snapshot created successfully: ${snapshot_path}"
+
+        # Write metadata file alongside the snapshot (not inside, as snapshot is read-only)
+        cat > "${snapshot_path}.info" << EOF
+SNAPSHOT_NAME=${snapshot_name}
+SNAPSHOT_TYPE=${action}
+SNAPSHOT_DATE=$(get_date)
+SNAPSHOT_TIME=$(get_time)
+DESCRIPTION=${description}
+CREATED_BY=apt-btrfs-snapshot
+EOF
+        return 0
+    else
+        log "ERROR" "Failed to create snapshot: ${snapshot_path}"
+        return 1
+    fi
+}
+
+# Cleanup old snapshots
+cleanup_snapshots() {
+    local count
+    local to_delete
+    local snapshot
+
+    if [[ "$MAX_SNAPSHOTS" -eq 0 ]]; then
+        log "INFO" "Snapshot cleanup disabled (MAX_SNAPSHOTS=0)"
+        return 0
+    fi
+
+    if [[ ! -d "$SNAPSHOTS_DIR" ]]; then
+        log "INFO" "Snapshots directory does not exist, nothing to clean"
+        return 0
+    fi
+
+    # Count existing snapshots
+    count=$(find "$SNAPSHOTS_DIR" -maxdepth 1 -type d -name "${SNAPSHOT_PREFIX}_*" 2>/dev/null | wc -l)
+
+    if [[ "$count" -le "$MAX_SNAPSHOTS" ]]; then
+        log "INFO" "Snapshot count ($count) within limit ($MAX_SNAPSHOTS), no cleanup needed"
+        return 0
+    fi
+
+    to_delete=$((count - MAX_SNAPSHOTS))
+    log "INFO" "Cleaning up $to_delete old snapshot(s)"
+
+    # Delete oldest snapshots first (sorted by name which includes timestamp)
+    find "$SNAPSHOTS_DIR" -maxdepth 1 -type d -name "${SNAPSHOT_PREFIX}_*" 2>/dev/null | \
+        sort | head -n "$to_delete" | while read -r snapshot; do
+        log "INFO" "Deleting old snapshot: $snapshot"
+        if btrfs subvolume delete "$snapshot" > /dev/null 2>&1; then
+            log "INFO" "Deleted: $snapshot"
+            # Also remove the metadata file
+            rm -f "${snapshot}.info" 2>/dev/null
+        else
+            log "WARN" "Failed to delete: $snapshot"
+        fi
+    done
+}
+
+# List snapshots
+list_snapshots() {
+    echo "APT Btrfs Snapshots in ${SNAPSHOTS_DIR}:"
+    echo "----------------------------------------"
+
+    if [[ ! -d "$SNAPSHOTS_DIR" ]]; then
+        echo "No snapshots directory found."
+        return 0
+    fi
+
+    find "$SNAPSHOTS_DIR" -maxdepth 1 -type d -name "${SNAPSHOT_PREFIX}_*" 2>/dev/null | \
+        sort -r | while read -r snapshot; do
+        local name
+        local info_file
+        local description=""
+
+        name=$(basename "$snapshot")
+        info_file="${snapshot}.info"
+
+        if [[ -f "$info_file" ]]; then
+            description=$(grep "^DESCRIPTION=" "$info_file" 2>/dev/null | cut -d= -f2- || echo "")
+        fi
+
+        echo "  $name"
+        [[ -n "$description" ]] && echo "    Description: $description"
+    done
+}
+
+# Rollback to a snapshot (informational - requires manual intervention)
+rollback_info() {
+    local snapshot_name="${1:-}"
+
+    echo "Btrfs Snapshot Rollback Information"
+    echo "===================================="
+    echo ""
+    echo "To rollback to a snapshot, you need to:"
+    echo ""
+    echo "1. Boot from a live USB or recovery mode"
+    echo "2. Mount the btrfs root:"
+    echo "   mount -o subvolid=5 ${BTRFS_DEVICE} /mnt"
+    echo ""
+    echo "3. Rename the current root subvolume:"
+    echo "   mv /mnt/${SNAPSHOT_SUBVOL} /mnt/${SNAPSHOT_SUBVOL}.broken"
+    echo ""
+    echo "4. Create a new writable snapshot from your chosen snapshot:"
+    echo "   btrfs subvolume snapshot /mnt/.snapshots/<snapshot-name> /mnt/${SNAPSHOT_SUBVOL}"
+    echo ""
+    echo "5. Reboot into the restored system"
+    echo ""
+    echo "Available snapshots:"
+    list_snapshots
+}
+
+# Main
+main() {
+    local action="${1:-help}"
+
+    case "$action" in
+        pre)
+            create_snapshot "pre"
+            ;;
+        post)
+            create_snapshot "post"
+            cleanup_snapshots
+            ;;
+        cleanup)
+            cleanup_snapshots
+            ;;
+        list)
+            list_snapshots
+            ;;
+        rollback)
+            rollback_info "${2:-}"
+            ;;
+        help|--help|-h)
+            echo "Usage: $0 {pre|post|cleanup|list|rollback}"
+            echo ""
+            echo "Commands:"
+            echo "  pre      - Create a pre-operation snapshot"
+            echo "  post     - Create a post-operation snapshot and cleanup old ones"
+            echo "  cleanup  - Remove old snapshots exceeding the limit"
+            echo "  list     - List all APT snapshots"
+            echo "  rollback - Show rollback instructions"
+            ;;
+        *)
+            echo "Unknown action: $action" >&2
+            echo "Use '$0 help' for usage information" >&2
+            exit 1
+            ;;
+    esac
+}
+
+main "$@"

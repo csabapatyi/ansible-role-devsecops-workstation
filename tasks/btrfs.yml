@@ -1,0 +1,305 @@
+---
+# ------------------------------------------------------------------------------
+# Btrfs Subvolume Management and APT Snapshot Integration
+# ------------------------------------------------------------------------------
+
+# ------------------------------------------------------------------------------
+# 1. Install required packages for btrfs management
+# ------------------------------------------------------------------------------
+- name: Install btrfs utilities (Debian)
+  ansible.builtin.apt:
+    name:
+      - btrfs-progs
+    state: present
+    update_cache: true
+  when:
+    - ansible_facts['os_family'] == "Debian"
+    - btrfs_manage_subvolumes or btrfs_apt_snapshots_enable or btrfs_install_snapper
+  become: true
+
+- name: Install btrfs utilities (Fedora)
+  ansible.builtin.dnf:
+    name:
+      - btrfs-progs
+    state: present
+  when:
+    - ansible_facts['os_family'] == "RedHat"
+    - btrfs_manage_subvolumes or btrfs_install_snapper
+  become: true
+
+- name: Install btrfs utilities (openSUSE)
+  community.general.zypper:
+    name:
+      - btrfsprogs
+    state: present
+  when:
+    - ansible_facts['os_family'] == "Suse"
+    - btrfs_manage_subvolumes or btrfs_install_snapper
+  become: true
+
+- name: Install btrfs utilities (Arch)
+  community.general.pacman:
+    name:
+      - btrfs-progs
+    state: present
+  when:
+    - ansible_facts['os_family'] == "Archlinux"
+    - btrfs_manage_subvolumes or btrfs_install_snapper
+  become: true
+
+# ------------------------------------------------------------------------------
+# 2. Create btrfs subvolumes
+# ------------------------------------------------------------------------------
+- name: Manage btrfs subvolumes
+  when:
+    - btrfs_manage_subvolumes
+    - btrfs_subvolumes | length > 0
+  become: true
+  block:
+    - name: Create btrfs mount point directory
+      ansible.builtin.file:
+        path: "{{ btrfs_mount_point }}"
+        state: directory
+        mode: "0755"
+
+    - name: Mount btrfs root for subvolume management
+      ansible.posix.mount:
+        path: "{{ btrfs_mount_point }}"
+        src: "{{ btrfs_device }}"
+        fstype: btrfs
+        opts: "subvolid=5"
+        state: mounted
+
+    - name: Get existing subvolumes
+      ansible.builtin.command:
+        cmd: btrfs subvolume list -o "{{ btrfs_mount_point }}"
+      register: existing_subvolumes
+      changed_when: false
+
+    - name: Create missing subvolumes
+      ansible.builtin.command:
+        cmd: btrfs subvolume create "{{ btrfs_mount_point }}/{{ item.name }}"
+        creates: "{{ btrfs_mount_point }}/{{ item.name }}"
+      loop: "{{ btrfs_subvolumes }}"
+      when:
+        - item.create | default(true)
+        - item.name not in existing_subvolumes.stdout
+
+    - name: Unmount btrfs root
+      ansible.posix.mount:
+        path: "{{ btrfs_mount_point }}"
+        state: unmounted
+
+    - name: Create mount point directories for subvolumes
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: directory
+        mode: "0755"
+      loop: "{{ btrfs_subvolumes }}"
+      when: item.path != "/"
+
+    - name: Generate mount options for each subvolume
+      ansible.builtin.set_fact:
+        btrfs_subvolume_mount_options: >-
+          {{ item.mount_options | default(btrfs_default_mount_options) }}{{ ',ssd,discard=async' if btrfs_is_ssd else '' }}
+      loop: "{{ btrfs_subvolumes }}"
+      register: mount_options_result
+
+    - name: Ensure subvolumes are in fstab
+      ansible.posix.mount:
+        path: "{{ item.path }}"
+        src: "{{ btrfs_device }}"
+        fstype: btrfs
+        opts: "subvol={{ item.name }},{{ item.mount_options | default(btrfs_default_mount_options) }}{{ ',' + btrfs_ssd_options if btrfs_is_ssd else '' }}"
+        state: present
+      loop: "{{ btrfs_subvolumes }}"
+
+# ------------------------------------------------------------------------------
+# 3. APT Btrfs Snapshot Integration (Debian-based only)
+# ------------------------------------------------------------------------------
+- name: Configure APT btrfs snapshots
+  when:
+    - ansible_facts['os_family'] == "Debian"
+    - btrfs_apt_snapshots_enable
+  become: true
+  block:
+    - name: Create snapshots directory
+      ansible.builtin.file:
+        path: "{{ btrfs_apt_snapshots_dir }}"
+        state: directory
+        mode: "0750"
+        owner: root
+        group: root
+
+    - name: Create APT hooks directory
+      ansible.builtin.file:
+        path: /etc/apt/apt.conf.d
+        state: directory
+        mode: "0755"
+
+    - name: Deploy btrfs snapshot script
+      ansible.builtin.template:
+        src: apt-btrfs-snapshot.sh.j2
+        dest: /usr/local/sbin/apt-btrfs-snapshot
+        mode: "0755"
+        owner: root
+        group: root
+
+    - name: Deploy APT pre-invoke hook
+      ansible.builtin.copy:
+        dest: /etc/apt/apt.conf.d/80-btrfs-snapshot-pre
+        content: |
+          // Btrfs snapshot before APT operations
+          DPkg::Pre-Invoke { "/usr/local/sbin/apt-btrfs-snapshot pre"; };
+        mode: "0644"
+        owner: root
+        group: root
+
+    - name: Deploy APT post-invoke hook
+      ansible.builtin.copy:
+        dest: /etc/apt/apt.conf.d/80-btrfs-snapshot-post
+        content: |
+          // Btrfs snapshot after APT operations
+          DPkg::Post-Invoke { "/usr/local/sbin/apt-btrfs-snapshot post"; };
+        mode: "0644"
+        owner: root
+        group: root
+      when: btrfs_apt_snapshots_post
+
+    - name: Create snapshot cleanup cron job
+      ansible.builtin.cron:
+        name: "Cleanup old APT btrfs snapshots"
+        minute: "0"
+        hour: "3"
+        job: "/usr/local/sbin/apt-btrfs-snapshot cleanup"
+        user: root
+        state: present
+      when: btrfs_apt_snapshots_keep > 0
+
+# ------------------------------------------------------------------------------
+# 4. Snapper Installation and Configuration
+# ------------------------------------------------------------------------------
+- name: Install and configure snapper
+  when: btrfs_install_snapper
+  become: true
+  block:
+    - name: Install snapper (Debian)
+      ansible.builtin.apt:
+        name:
+          - snapper
+          - snapper-gui
+        state: present
+      when: ansible_facts['os_family'] == "Debian"
+      failed_when: false
+
+    - name: Install snapper (Fedora)
+      ansible.builtin.dnf:
+        name:
+          - snapper
+          - python3-dnf-plugin-snapper
+        state: present
+      when: ansible_facts['os_family'] == "RedHat"
+
+    - name: Install snapper (openSUSE)
+      community.general.zypper:
+        name:
+          - snapper
+          - snapper-zypp-plugin
+        state: present
+      when: ansible_facts['os_family'] == "Suse"
+
+    - name: Install snapper (Arch)
+      community.general.pacman:
+        name:
+          - snapper
+          - snap-pac
+        state: present
+      when: ansible_facts['os_family'] == "Archlinux"
+
+    - name: Check existing snapper configs
+      ansible.builtin.command:
+        cmd: snapper list-configs
+      register: snapper_existing_configs
+      changed_when: false
+      failed_when: false
+
+    - name: Create snapper configurations
+      ansible.builtin.command:
+        cmd: snapper -c "{{ item.name }}" create-config "{{ item.subvolume }}"
+      loop: "{{ btrfs_snapper_configs }}"
+      when: item.name not in snapper_existing_configs.stdout
+      register: snapper_create_result
+      failed_when:
+        - snapper_create_result.rc != 0
+        - "'already exists' not in snapper_create_result.stderr"
+
+    - name: Configure snapper timeline settings
+      ansible.builtin.lineinfile:
+        path: "/etc/snapper/configs/{{ item.0.name }}"
+        regexp: "^{{ item.1.key }}="
+        line: '{{ item.1.key }}="{{ item.1.value }}"'
+      loop: "{{ btrfs_snapper_configs | subelements('settings', skip_missing=True) }}"
+      when: btrfs_snapper_configs | length > 0
+
+    - name: Configure snapper timeline creation
+      ansible.builtin.lineinfile:
+        path: "/etc/snapper/configs/{{ item.name }}"
+        regexp: "^TIMELINE_CREATE="
+        line: 'TIMELINE_CREATE="{{ ''yes'' if item.timeline_create | default(true) else ''no'' }}"'
+      loop: "{{ btrfs_snapper_configs }}"
+
+    - name: Configure snapper timeline cleanup
+      ansible.builtin.lineinfile:
+        path: "/etc/snapper/configs/{{ item.name }}"
+        regexp: "^TIMELINE_CLEANUP="
+        line: 'TIMELINE_CLEANUP="{{ ''yes'' if item.timeline_cleanup | default(true) else ''no'' }}"'
+      loop: "{{ btrfs_snapper_configs }}"
+
+    - name: Configure snapper hourly limit
+      ansible.builtin.lineinfile:
+        path: "/etc/snapper/configs/{{ item.name }}"
+        regexp: "^TIMELINE_LIMIT_HOURLY="
+        line: 'TIMELINE_LIMIT_HOURLY="{{ item.timeline_limit_hourly | default(5) }}"'
+      loop: "{{ btrfs_snapper_configs }}"
+
+    - name: Configure snapper daily limit
+      ansible.builtin.lineinfile:
+        path: "/etc/snapper/configs/{{ item.name }}"
+        regexp: "^TIMELINE_LIMIT_DAILY="
+        line: 'TIMELINE_LIMIT_DAILY="{{ item.timeline_limit_daily | default(7) }}"'
+      loop: "{{ btrfs_snapper_configs }}"
+
+    - name: Configure snapper weekly limit
+      ansible.builtin.lineinfile:
+        path: "/etc/snapper/configs/{{ item.name }}"
+        regexp: "^TIMELINE_LIMIT_WEEKLY="
+        line: 'TIMELINE_LIMIT_WEEKLY="{{ item.timeline_limit_weekly | default(4) }}"'
+      loop: "{{ btrfs_snapper_configs }}"
+
+    - name: Configure snapper monthly limit
+      ansible.builtin.lineinfile:
+        path: "/etc/snapper/configs/{{ item.name }}"
+        regexp: "^TIMELINE_LIMIT_MONTHLY="
+        line: 'TIMELINE_LIMIT_MONTHLY="{{ item.timeline_limit_monthly | default(6) }}"'
+      loop: "{{ btrfs_snapper_configs }}"
+
+    - name: Configure snapper yearly limit
+      ansible.builtin.lineinfile:
+        path: "/etc/snapper/configs/{{ item.name }}"
+        regexp: "^TIMELINE_LIMIT_YEARLY="
+        line: 'TIMELINE_LIMIT_YEARLY="{{ item.timeline_limit_yearly | default(2) }}"'
+      loop: "{{ btrfs_snapper_configs }}"
+
+    - name: Enable snapper timeline timer
+      ansible.builtin.systemd:
+        name: snapper-timeline.timer
+        enabled: true
+        state: started
+      failed_when: false
+
+    - name: Enable snapper cleanup timer
+      ansible.builtin.systemd:
+        name: snapper-cleanup.timer
+        enabled: true
+        state: started
+      failed_when: false
