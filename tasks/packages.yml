@@ -11,7 +11,9 @@
     name: "{{ system_packages }}"
     state: present
   register: apt_install_result
-  changed_when: "'0 upgraded, 0 newly installed, 0 to remove' not in (apt_install_result.stdout | default(''))"
+  changed_when: >-
+    (apt_install_result.stdout | default('')) is search('([1-9]\d*) newly installed')
+    or (apt_install_result.stdout | default('')) is search('([1-9]\d*) upgraded')
   when:
     - ansible_facts['os_family'] == "Debian"
     - system_packages | length > 0
