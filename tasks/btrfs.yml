@@ -229,6 +229,7 @@
       loop: "{{ btrfs_snapper_configs }}"
       when: item.name not in snapper_existing_configs.stdout
       register: snapper_create_result
+      changed_when: snapper_create_result.rc == 0
       failed_when:
         - snapper_create_result.rc != 0
         - "'already exists' not in snapper_create_result.stderr"
