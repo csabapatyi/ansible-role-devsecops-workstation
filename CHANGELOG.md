@@ -22,3 +22,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Docker repository idempotency**: Applied the same `apt_repository` to `copy` fix for the Docker repository task.
 - **apt cache update idempotency**: The `Update apt cache (Debian)` task now uses `changed_when: false` since it is a cache refresh gated by actual repository changes, not a state change itself.
 - **Nerd Fonts idempotency**: Split font installation into separate download and extract steps so fonts are only extracted when newly downloaded, and the font cache is only rebuilt when fonts actually change.
+- **README OS badges**: Switched per-OS status badges from shields.io (which only reports overall workflow status) to GitHub's native per-job badge API using the `?name=` parameter, so each badge correctly reflects its individual job result.
