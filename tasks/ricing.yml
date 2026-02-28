@@ -15,17 +15,26 @@
         group: "{{ workstation_user }}"
         mode: "0755"
 
-    - name: Download and unarchive Nerd Fonts
+    - name: Download Nerd Font zip files
+      ansible.builtin.get_url:
+        url: "{{ item }}"
+        dest: "/home/{{ workstation_user }}/.local/share/fonts/{{ item | basename }}"
+        mode: "0644"
+      loop: "{{ nerd_font_urls }}"
+      register: fonts_downloaded
+
+    - name: Unarchive newly downloaded Nerd Fonts
       ansible.builtin.unarchive:
-        src: "{{ item }}"
+        src: "/home/{{ workstation_user }}/.local/share/fonts/{{ item.item | basename }}"
         dest: "/home/{{ workstation_user }}/.local/share/fonts"
         remote_src: true
-      loop: "{{ nerd_font_urls }}"
-      register: fonts_installed
+      loop: "{{ fonts_downloaded.results }}"
+      when: item.changed
+      register: fonts_extracted
 
     - name: Update font cache
       ansible.builtin.command: fc-cache -f
-      when: fonts_installed.changed
+      when: fonts_extracted.results | default([]) | selectattr('changed', 'defined') | selectattr('changed') | list | length > 0
       changed_when: true
 
 # 2. Clone Dotfiles Repository
